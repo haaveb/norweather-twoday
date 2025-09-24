@@ -4,6 +4,7 @@ __pycache__/
 
 # Ignore output images and plots
 *.png
+!sample_plot.png
 *.jpg
 *.jpeg
 
