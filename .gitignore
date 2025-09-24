@@ -1,0 +1,25 @@
+# Ignore Python cache and compiled files
+__pycache__/
+*.pyc
+
+# Ignore output images and plots
+*.png
+*.jpg
+*.jpeg
+
+# Ignore logs and temp files
+*.log
+*.tmp
+
+# Ignore data files that shouldn't be versioned
+*.csv
+!kommuners_koordinater.csv
+temp_data/
+output/
+
+# Ignore VS Code settings (optional)
+.vscode/
+
+# Ignore OS-specific files
+.DS_Store
+Thumbs.db
