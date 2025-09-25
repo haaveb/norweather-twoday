@@ -15,53 +15,79 @@ from matplotlib.colors import TwoSlopeNorm
 from palette_cold_neutral_warm import get_temperature_colormap
 
 # ==== FREQUENTLY ADJUSTED THINGS (& SOME RELATED LOGIC) GROUPED HERE ====
-FORECAST_HOURS = 44            # Number of forecast hours, <=48
-REALLYWARM = 30 
-TRULYCOLD = -REALLYWARM/2
-N_COLORS = int(REALLYWARM)*2+1 # Odd number centers white-ish color segment at zero.
-COLORMAP, _ = get_temperature_colormap(N_COLORS) # Colormap for temperature line
-SHOW_COLORBAR = False
+FORECAST_HOURS = 34            # Number of forecast hours, <=48
 
+# ---- Custom palette for temperature line -----------------------------------------
+REALLYWARM = 30                # Defines the warmest color.
+TRULYCOLD = -REALLYWARM/2      # Defines the coldest color.
+N_COLORS = int(REALLYWARM)*2+1 # Odd number centers white-ish color segment at zero.
+COLORMAP, _ = get_temperature_colormap(N_COLORS)
+SHOW_COLORBAR = False
+# ----------------------------------------------------------------------------------
+
+BACKGROUND_COLOR = "#BCB8BD" # e.g. "#BCB8BD"
 GRIDLINE_COLOR =   "#767A72" # e.g. "#767A72"
-BACKGROUND_COLOR = "#ADAAAE" # e.g. "#ADAAAE"
+NEWDAY_COLOR = "#545753"     # e.g. "#545753" vert. gridline at midnight
 mpl.rcParams['figure.facecolor'] = BACKGROUND_COLOR
 mpl.rcParams['axes.facecolor'] = BACKGROUND_COLOR
-# =====================================================================
+# ========================================================================
 
 # ==== GET INPUT NAME OF KOMMUNE, LOOK UP COORDINATES IN LOCAL FILE. ====
 kommune = input("Navn på kommune: ").strip().lower() # Means 'municipality'.
 
-latitude = longitude = None
-with open("kommuners_koordinater.csv", encoding="utf-8") as csv_file:
-    csv_reader = csv.DictReader(csv_file)
-    for csv_row in csv_reader:
-        # Support entries with Saami(?) names sep. by hyphens (ex. "Trondheim - Tråante")
-        kommune_names = [part.strip().lower() for part in csv_row["kommune"].split('-')]
-        # print(f"Comparing input '{kommune}' with CSV names {kommune_names}")
-        if kommune in kommune_names:
-            latitude = float(csv_row["latitude"])
-            longitude = float(csv_row["longitude"])
-            break # When the name is found (and coordinates are collected & set).
-if latitude is None:
-    raise ValueError(f"Fant ikke kommune '{kommune}' in kommuners_koordinater.csv")
-print(f"Coordinates for {kommune.title()}: {latitude}, {longitude}")
+# Handle special test cases
+if kommune == "test1":
+    latitude, longitude = 59.9139, 10.7522  # Oslo coordinates
+    print(f"Using test1 (Oslo example): {latitude}, {longitude}")
+elif kommune == "test2":
+    latitude, longitude = 69.7444, 18.63    # Tromsø coordinates  
+    print(f"Using test2 (Tromsø example): {latitude}, {longitude}")
+else:
+    # Normal lookup in CSV file
+    latitude = longitude = None
+    with open("kommuners_koordinater.csv", encoding="utf-8") as csv_file:
+        csv_reader = csv.DictReader(csv_file)
+        for csv_row in csv_reader:
+            # Support entries with Saami(?) names sep. by hyphens (ex. "Trondheim - Tråante")
+            kommune_names = [part.strip().lower() for part in csv_row["kommune"].split('-')]
+            # print(f"Comparing input '{kommune}' with CSV names {kommune_names}")
+            if kommune in kommune_names:
+                latitude = float(csv_row["latitude"])
+                longitude = float(csv_row["longitude"])
+                break # When the name is found (and coordinates are collected & set).
+    if latitude is None:
+        raise ValueError(f"Fant ikke kommune '{kommune}' in kommuners_koordinater.csv")
+    print(f"Coordinates for {kommune.title()}: {latitude}, {longitude}")
 
 # ==== COLLECT AND DECIPHER WEATHER DATA. ====
 
 os.makedirs("temp_data", exist_ok=True)
-# Check whether cache exists + is recent (from last half hour)
-cache_dumpfile = os.path.join("temp_data", f"weather_cache_{kommune}.json")
-use_cache = False
-if os.path.exists(cache_dumpfile):
-    cache_mtime = os.path.getmtime(cache_dumpfile)
-    cache_age_seconds = (datetime.now().timestamp() - cache_mtime)
-    if cache_age_seconds < 1800: 
-        with open(cache_dumpfile, 'r', encoding='utf-8') as cache_file:
+# ---- Check whether cache exists + is recent (from last half hour)
+# Special handling for test cases
+if kommune in ["test1", "test2"]:
+    test_cache_file = os.path.join("test_data", f"{kommune}.json")
+    if os.path.exists(test_cache_file):
+        with open(test_cache_file, 'r', encoding='utf-8') as cache_file:
             weather_data = json.load(cache_file)
-        print(f"Using cached weather data for {kommune} (age: {int(cache_age_seconds/60)} min)")
+        print(f"Using test data for {kommune}")
         use_cache = True
+    else:
+        raise FileNotFoundError(f"Test data file not found: {test_cache_file}")
+else:
+    # Normal cache handling
+    cache_dumpfile = os.path.join("temp_data", f"weather_cache_{kommune}.json")
+    use_cache = False
+    if os.path.exists(cache_dumpfile):
+        cache_mtime = os.path.getmtime(cache_dumpfile)
+        cache_age_seconds = (datetime.now().timestamp() - cache_mtime)
+        if cache_age_seconds < 1800: 
+            with open(cache_dumpfile, 'r', encoding='utf-8') as cache_file:
+                weather_data = json.load(cache_file)
+            print(f"Using cached weather data for {kommune} (age: {int(cache_age_seconds/60)} min)")
+            use_cache = True
 
-if not use_cache:
+# "When not using cache"
+if not use_cache: 
     url = f"https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={latitude}&lon={longitude}"
     headers = {"User-Agent": "BjornHaave/1.0 github.com/haaveb"} # User-Agent required by met.no.
     response = requests.get(url, headers=headers)
@@ -136,12 +162,15 @@ temperature_line_collection = LineCollection(line_segments,
                                              cmap=COLORMAP,norm=temperature_cmap_norm)
 segment_avgs = 0.5 * (np.array(temperature_values[:-1]) + np.array(temperature_values[1:]))
 temperature_line_collection.set_array(segment_avgs)
-temperature_line_collection.set_linewidth(5)
+temperature_line_collection.set_linewidth(6)
+temperature_line_collection.set_capstyle('round')  # Round line ends
+temperature_line_collection.set_joinstyle('round') # Round corners
+temperature_line_collection.set_zorder(5)  # Ensure temperature line is above vertical lines
+
 temperature_axes.add_collection(temperature_line_collection)
 temperature_axes.set_xlim(time_indices.min(), time_indices.max())
 temperature_axes.set_ylim(min(temperature_values), max(temperature_values))
 temperature_axes.set_ylabel('Temperature  (°C)', fontweight='bold', labelpad=12)
-temperature_axes.grid(True)
 
 # Set x-ticks
 if FORECAST_HOURS > 24: 
@@ -164,7 +193,7 @@ if SHOW_COLORBAR:
     )
 
 # Create a second y-axis for precipitation (some space below is good) and windspeed.
-precipitation_axes = temperature_axes.twinx()
+precipitation_axes = temperature_axes.twinx() # prec/temp: similar range (different units)
 precipitation_axes.set_ylabel(
     'Precipitation  (mm)   /   Windspeed  (m/s)', 
     fontweight='bold', labelpad=20
@@ -174,7 +203,7 @@ precipitation_axes.tick_params(axis='y')
 # Plot precipitation as a blue line
 precipitation_axes.plot(
     time_indices, precipitation_list, label='Precipitation', 
-    linewidth=2.5, color='tab:blue'
+    linewidth=3.2, color='tab:blue', zorder=5
 )
 
 # Plot windspeed as black points
@@ -186,15 +215,12 @@ precipitation_axes.scatter(
 # Legend for precipitation and windspeed
 precipitation_axes.legend(loc='upper right')
 
-# Add bold vertical lines at the start of each new day (24 hr, midnight).
-for idx, t in enumerate(times_list):
-    if t.startswith('00.'):
-        temperature_axes.axvline(x=idx, color='k', linewidth=2, alpha=0.7, zorder=0)
+# ---- UNIFORM GRIDLINES AND VISUAL TWEAKS ----
+# (Only) vertical gridlines
+temperature_axes.grid(True, axis='x', 
+                      linewidth=1, color=GRIDLINE_COLOR, alpha=0.4, zorder=-1
+                      ) 
 
-temperature_axes.grid(linewidth=1.3, color=GRIDLINE_COLOR, alpha=0.5)
-precipitation_axes.grid(linewidth=1.3, color=GRIDLINE_COLOR, alpha=0.5)
-
-# ---- UNIFORM GRIDLINES & VISUAL TWEAK ----
 temp_min, temp_max = temperature_axes.get_ylim()
 precip_min, precip_max = precipitation_axes.get_ylim()
 
@@ -203,12 +229,12 @@ if 0 < temp_min < 5:
     temp_min = 0
 
 # Round to whole numbers
-temp_min, temp_max = np.floor(temp_min), np.ceil(temp_max)
+temp_max, temp_min = np.ceil(temp_max), np.floor(temp_min)
+precip_max = np.ceil(precip_max)
 precip_min = 0 
-# Setting to zero avoids added 0 to -1 space introduced by np.floor(precip_min).
+# Setting this to zero avoids added 0 to -1 space introduced by np.floor(precip_min).
 # Thus easier to read, and it's always at or near zero anyway.
 # Negative precipitation would be cause for alarm.
-precip_max = np.ceil(precip_max)
 
 # Ranges for y-axes
 temp_range = temp_max - temp_min
@@ -234,6 +260,34 @@ large_axes.set_yticks(large_ticks)
 small_axes.set_ylim(small_min, small_max)
 small_ticks = np.arange(small_min, small_max + 1, 1)
 small_axes.set_yticks(small_ticks)
+
+for large_tick in large_ticks:
+    # Draw horizontal lines on the large_axes (which has the most ticks)
+    draw_y = large_tick
+    
+    # Convert large_tick to small_axes coordinate space for alignment check
+    # Use the actual axis limits for proper coordinate conversion
+    large_ylim_min, large_ylim_max = large_axes.get_ylim()
+    small_ylim_min, small_ylim_max = small_axes.get_ylim()
+    small_equiv = small_ylim_min + (large_tick - large_ylim_min) * (small_ylim_max - small_ylim_min) / (large_ylim_max - large_ylim_min)
+    
+    # Check if any small_axes tick is close to this equivalent position  
+    is_aligned = any(abs(small_tick - small_equiv) < 0.01 for small_tick in small_ticks)
+    
+    if is_aligned:
+        # Thick line for aligned y-ticks
+        large_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=2.0, alpha=0.7, zorder=-1)
+    else:
+        # Thin line for non-aligned y-ticks  
+        large_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=0.8, alpha=0.5, zorder=-1)
+
+# Add bold vertical line(s) for midnight
+for idx, t in enumerate(times_list):
+    if t.startswith('00.'):
+        y_min, y_max = temperature_axes.get_ylim()
+        temperature_axes.plot([idx, idx], [y_min, y_max], 
+                             color=NEWDAY_COLOR, linewidth=4, alpha=1.0, zorder=2)
+        
 # ------------------------------------------
 
 plt.tight_layout()

@@ -22,3 +22,8 @@ Gave up on some expansions, first and foremost API geodata collection, due to is
 
 ## Sample Output
 ![Sample plot of temperature and precipitation](sample_plot.png)
+
+## Testing
+Sample weather data is provided for testing the plotting functionality, specifically grid alignment. Running the main script, use the input: 
+`test1`   for an Oslo sample,   w/ larger temperature     range.
+`test2`   for a  Tromsø sample, w/ larger precip./windsp. range
