@@ -1,6 +1,14 @@
 # ============================================================================
 # TEMPERATURE COLORMAP: COLD → NEUTRAL → WARM (LUV Color Space)
 # ============================================================================
+# 
+# ATTRIBUTION:
+# - Colorblind simulation matrices: Murtagh, F. and Birch, G. (2006)
+#   "Color blindness and its simulation" 
+#   Via Martin Krzywinski, Canada's Michael Smith Genome Sciences Centre
+#   https://mk.bcgsc.ca/colorblind/math.mhtml
+#
+# ============================================================================
 import numpy as np
 from matplotlib.colors import to_rgb, to_hex, ListedColormap
 from skimage import color
@@ -13,21 +21,23 @@ from skimage import color
     # Manually assembled, in part with using https://www.hsluv.org
     # Made to be intuitive for how temperatures feel, specifically in the 
     # context of deciding what to wear. Might be specific to Oslo-weather.
+
 palette_anchors = [
-    "#1d0096", "#0025c6", "#0061eb",   
-    "#2ca5ff", "#76d5ff",              
-    "#f6f6f6",                       
-    "#adffe1", "#bbfd86",             
-    "#eafc3e", "#ffd314", "#ff7d00",  
+    "#1d0096", "#0025c6", "#0061eb", 
+    "#2ca5ff", "#76d5ff", 
+    "#f6f6f6",
+    "#adffe1", "#bbfd86", 
+    "#eafc3e", "#ffd314", "#fd9400",
 ]
 
 # Colorblind-optimized anchors (currently same as primary)
+
 palette_anchors_colorblind = [
     "#1d0096", "#0025c6", "#0061eb", 
     "#2ca5ff", "#76d5ff", 
     "#f6f6f6",
     "#adffe1", "#bbfd86", 
-    "#eafc3e", "#ffd314", "#ff7d00",
+    "#eafc3e", "#ffd314", "#fd9400",
 ]
 
 # ============================================================================
@@ -91,12 +101,16 @@ def simulate_colorblindness(rgb_color, cb_type='protanopia'):
     
     Returns:
         RGB color as seen by someone with that type of colorblindness.
+        
+    References:
+        Transformation matrices based on:
+        Murtagh, F. and Birch, G. (2006) "Color blindness and its simulation",
+        Martin Krzywinski, Canada's Michael Smith Genome Sciences Centre
+        https://mk.bcgsc.ca/colorblind/math.mhtml
     """
 
-    # Transformation matrices 
-    # Based on Murtagh and Birch (2006)
-    # https://mk.bcgsc.ca/colorblind/math.mhtml
-    
+    # Colorblind transformation matrices
+    # Source: Murtagh and Birch (2006) via https://mk.bcgsc.ca/colorblind/math.mhtml
     matrices = {
         # Complete absence (dichromacy)
         'protanopia': np.array([
@@ -168,26 +182,7 @@ def create_colorblind_palette(hex_colors, cb_type):
 def get_colorblind_colormap(
     n_colors, cb_type, anchors=None, colorblind_friendly=False
 ):
-    """
-    Create a colormap simulating colorblindness.
-    
-    Args:
-        n_colors: Number of colors to generate
-        cb_type: 'protanopia', 'deuteranopia', 'tritanopia', 'protanomaly', 
-                 'deuteranomaly', 'tritanomaly', 'achromatopsia'
-        anchors: Custom anchor colors (if None, uses default)
-        colorblind_friendly: If True, uses colorblind-optimized anchors.
-    
-    Returns:
-        ListedColormap as seen by someone with the specified colorblindness.
-    
-    Example:
-        # Test how your weather plot looks to someone with deuteranopia.
-        cb_colormap, _ = get_colorblind_colormap(61, 'deuteranopia')
-        
-        # Use in norweather_twoday.py:
-        # COLORMAP = cb_colormap
-    """
+
     # First get the normal colormap
     _, normal_palette = get_temperature_colormap(
         n_colors, anchors, colorblind_friendly
@@ -271,14 +266,25 @@ if __name__ == "__main__":
             ax.set_xlim(0, len(palette))
             ax.set_ylim(0, 1)
             
-            # Add temperature tick marks only for the bottom plot
-            if idx == len(cb_types) - 1:
+            # Add temperature tick marks only for the top plot
+            if idx == 0:
                 n = len(palette)
-                tick_positions = [0, (n-1)/2+0.5, n]
-                tick_labels = [f"{COLDEND}°C", "0°C", f"{WARMEND}°C"]
-                ax.set_xticks(tick_positions)
-                ax.set_xticklabels(tick_labels, fontsize=11, fontweight='bold')
-                ax.tick_params(axis='x', length=8, width=2)
+                
+                # Major ticks with labels (same as before)
+                major_tick_positions = [0, (n-1)/2+0.5, n]
+                major_tick_labels = [f"{COLDEND}°C", "0°C", f"{WARMEND}°C"]
+                
+                # Minor ticks without labels (just the visual marks)
+                minor_tick_positions = np.linspace(0, n, 13)  # 13 positions = 12 intervals
+                
+                # Set major ticks
+                ax.set_xticks(major_tick_positions)
+                ax.set_xticklabels(major_tick_labels, fontsize=11, fontweight='bold')
+                
+                # Add minor ticks
+                ax.set_xticks(minor_tick_positions, minor=True)
+                ax.tick_params(axis='x', which='major', length=8, width=2)
+                ax.tick_params(axis='x', which='minor', length=4, width=1)
             else:
                 ax.set_xticks([])
         
