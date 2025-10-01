@@ -19,10 +19,18 @@ from palette_cold_neutral_warm import get_temperature_colormap, get_colorblind_c
 # ================================================================================================
 # FREQUENTLY ADJUSTED THINGS (& SOME RELATED LOGIC) GROUPED HERE 
 # ================================================================================================
-FORECAST_HOURS = 32           # Number of forecast hours, <=48
+
+GITHUB_USERNAME = "YourGitHubUsername" # Replace with your GitHub username
+if GITHUB_USERNAME == "YourGitHubUsername":
+    raise ValueError(
+        "Please update GITHUB_USERNAME in the script for proper MET.no compliance. "
+        "Edit line 22 and replace 'YourGitHubUsername' with your actual GitHub username."
+    )
+
+FORECAST_HOURS = 32            # Number of forecast hours, <=48
 SHOW_COLORBAR = False
-USE_TEST_PLOT = True         # Test plot: large temperature range
-TEST_TEMP_RANGE = (-40, 40)   # Temperature range for test plot (min, max)
+USE_TEST_PLOT = False          # Test plot: large temperature range
+TEST_TEMP_RANGE = (-40, 40)    # Temperature range for test plot (min, max)
 
 # ---- CUSTOM PALETTE FOR TEMPERATURE LINE -------------------------------------------------------
 REALLYWARM = 30                # Defines the warmest color.
@@ -155,7 +163,7 @@ else:
     # When not using cache
     if not use_cache: 
         url = f"https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={latitude}&lon={longitude}"
-        headers = {"User-Agent": "BjornHaave/1.0 github.com/haaveb"} # User-Agent required by met.no.
+        headers = {"User-Agent": f"{GITHUB_USERNAME}/1.0 github.com/{GITHUB_USERNAME}/norweather-twoday"}# User-Agent required by met.no.
         response = requests.get(url, headers=headers)
         weather_data = response.json()
         # Save only the relevant part (timeseries) and a timestamp
