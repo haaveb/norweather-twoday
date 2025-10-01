@@ -9,8 +9,8 @@ pip install requests matplotlib numpy scikit-image
 ```
 where the latter is for the custom colormap.
 
-## Background
-This short project was made in order to explore data analysis & general syntax in Python. Have done similar things in MATLAB before (file reading/writing, basic maths & logic, (f-)print, plotting) but the languages differ a little. Spent some time constructing a reasonable, intuitive colormap for the plotted temperature line. Furthermore, getting uniform gridlines for the two y-axes took a little while.
+## Background and process
+This short project was made in order to explore basic data analysis & general syntax in Python. Spent some time constructing an intuitive colormap for weather temperature, taking into account colorblindness compatibility. Explored the subject of preceptual uniformity and LAB- and LUV-colorspaces, preferring the latter for this usage. Furthermore, getting uniform gridlines for the two y-axes took a little while.
 
 ## Limitations/Notes
 Gave up on some expansions, first and foremost API geodata collection, due to issues with modules and/or access. Thus ended up just organizing longitude and latitude data, from Kartverket, in a local file instead ('kommuners koordinater.csv'). On the other hand, dealing with the weather data API was surpisingly uneventful.
@@ -19,11 +19,14 @@ Gave up on some expansions, first and foremost API geodata collection, due to is
 - Geodata via API --> Provide other place name options and expand outside Norway.
 - Dynamic choice of variables of interest etc.
 - GUI etc.
+- Further exploring eyesight compatibility additions.
 
 ## Sample Output
 ![Sample plot of temperature and precipitation](sample_plot.png)
 
 ## Testing
-Sample weather data is provided for testing the plotting functionality, specifically grid alignment. Running the main script, use the input: 
-`test1`   for an Oslo sample,   w/ larger temperature     range.
-`test2`   for a  Tromsø sample, w/ larger precip./windsp. range
+Sample weather data is provided for testing the script, particularly the grid alignment in plotting. Use the input: 
+`sample1`   for an Oslo sample,   w/ larger temperature     range.
+`sample2`   for a  Tromsø sample, w/ larger precip./windsp. range.
+
+Also added a test plot (set `USE_TEST_PLOT` to True), intended for very large temp. range plus some prec. and wind.

@@ -1,4 +1,6 @@
-### Today's weather for a given norwegian kommune ###
+# ================================================================================================
+# TODAY'S WEATHER FOR A GIVEN NORWEGIAN KOMMUNE
+# ================================================================================================
 import os
 import csv
 import json
@@ -12,138 +14,204 @@ import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 from matplotlib.colors import TwoSlopeNorm
 
-from palette_cold_neutral_warm import get_temperature_colormap
+from palette_cold_neutral_warm import get_temperature_colormap, get_colorblind_colormap
 
-# ==== FREQUENTLY ADJUSTED THINGS (& SOME RELATED LOGIC) GROUPED HERE ====
-FORECAST_HOURS = 34            # Number of forecast hours, <=48
+# ================================================================================================
+# FREQUENTLY ADJUSTED THINGS (& SOME RELATED LOGIC) GROUPED HERE 
+# ================================================================================================
+FORECAST_HOURS = 32           # Number of forecast hours, <=48
+SHOW_COLORBAR = False
+USE_TEST_PLOT = True         # Test plot: large temperature range
+TEST_TEMP_RANGE = (-40, 40)   # Temperature range for test plot (min, max)
 
-# ---- Custom palette for temperature line -----------------------------------------
+# ---- CUSTOM PALETTE FOR TEMPERATURE LINE -------------------------------------------------------
 REALLYWARM = 30                # Defines the warmest color.
 TRULYCOLD = -REALLYWARM/2      # Defines the coldest color.
 N_COLORS = int(REALLYWARM)*2+1 # Odd number centers white-ish color segment at zero.
+
 COLORMAP, _ = get_temperature_colormap(N_COLORS)
-SHOW_COLORBAR = False
-# ----------------------------------------------------------------------------------
+# or 
+# COLORMAP, _ = get_colorblind_colormap(N_COLORS, 'achromatopsia', colorblind_friendly=True)
+#       for any of the following: 
+#       'protanopia', 'deuteranopia', 'tritanopia', 
+#       'protanomaly', 'deuteranomaly', 'tritanomaly', 'achromatopsia'
+# ------------------------------------------------------------------------------------------------
 
 BACKGROUND_COLOR = "#BCB8BD" # e.g. "#BCB8BD"
 GRIDLINE_COLOR =   "#767A72" # e.g. "#767A72"
 NEWDAY_COLOR = "#545753"     # e.g. "#545753" vert. gridline at midnight
 mpl.rcParams['figure.facecolor'] = BACKGROUND_COLOR
 mpl.rcParams['axes.facecolor'] = BACKGROUND_COLOR
-# ========================================================================
 
-# ==== GET INPUT NAME OF KOMMUNE, LOOK UP COORDINATES IN LOCAL FILE. ====
-kommune = input("Navn på kommune: ").strip().lower() # Means 'municipality'.
-
-# Handle special test cases
-if kommune == "test1":
-    latitude, longitude = 59.9139, 10.7522  # Oslo coordinates
-    print(f"Using test1 (Oslo example): {latitude}, {longitude}")
-elif kommune == "test2":
-    latitude, longitude = 69.7444, 18.63    # Tromsø coordinates  
-    print(f"Using test2 (Tromsø example): {latitude}, {longitude}")
+# ================================================================================================
+# GET INPUT NAME OF KOMMUNE, LOOK UP COORDINATES IN LOCAL FILE.
+# ================================================================================================
+if USE_TEST_PLOT:
+    kommune = "Test Plot"  # Sets title. Test mode logic is found in the next section.
 else:
-    # Normal lookup in CSV file
-    latitude = longitude = None
-    with open("kommuners_koordinater.csv", encoding="utf-8") as csv_file:
-        csv_reader = csv.DictReader(csv_file)
-        for csv_row in csv_reader:
-            # Support entries with Saami(?) names sep. by hyphens (ex. "Trondheim - Tråante")
-            kommune_names = [part.strip().lower() for part in csv_row["kommune"].split('-')]
-            # print(f"Comparing input '{kommune}' with CSV names {kommune_names}")
-            if kommune in kommune_names:
-                latitude = float(csv_row["latitude"])
-                longitude = float(csv_row["longitude"])
-                break # When the name is found (and coordinates are collected & set).
-    if latitude is None:
-        raise ValueError(f"Fant ikke kommune '{kommune}' in kommuners_koordinater.csv")
-    print(f"Coordinates for {kommune.title()}: {latitude}, {longitude}")
+    kommune = input("Navn på kommune: ").strip().lower() # Prompt only in normal mode
 
-# ==== COLLECT AND DECIPHER WEATHER DATA. ====
-
-os.makedirs("temp_data", exist_ok=True)
-# ---- Check whether cache exists + is recent (from last half hour)
-# Special handling for test cases
-if kommune in ["test1", "test2"]:
-    test_cache_file = os.path.join("test_data", f"{kommune}.json")
-    if os.path.exists(test_cache_file):
-        with open(test_cache_file, 'r', encoding='utf-8') as cache_file:
-            weather_data = json.load(cache_file)
-        print(f"Using test data for {kommune}")
-        use_cache = True
+    # HANDLE SPECIAL INPUT CASES
+    if kommune == "sample1":
+        latitude, longitude = 59.9139, 10.7522  # Oslo coordinates
+        print(f"Using sample1 (Oslo example): {latitude}, {longitude}")
+    elif kommune == "sample2":
+        latitude, longitude = 69.7444, 18.63    # Tromsø coordinates  
+        print(f"Using sample2 (Tromsø example): {latitude}, {longitude}")
     else:
-        raise FileNotFoundError(f"Test data file not found: {test_cache_file}")
-else:
-    # Normal cache handling
-    cache_dumpfile = os.path.join("temp_data", f"weather_cache_{kommune}.json")
-    use_cache = False
-    if os.path.exists(cache_dumpfile):
-        cache_mtime = os.path.getmtime(cache_dumpfile)
-        cache_age_seconds = (datetime.now().timestamp() - cache_mtime)
-        if cache_age_seconds < 1800: 
-            with open(cache_dumpfile, 'r', encoding='utf-8') as cache_file:
-                weather_data = json.load(cache_file)
-            print(f"Using cached weather data for {kommune} (age: {int(cache_age_seconds/60)} min)")
-            use_cache = True
+        # NORMAL LOOKUP IN CSV FILE
+        latitude = longitude = None
+        with open("kommuners_koordinater.csv", encoding="utf-8") as csv_file:
+            csv_reader = csv.DictReader(csv_file)
+            for csv_row in csv_reader:
+                kommune_names = [part.strip().lower() for part in csv_row["kommune"].split('-')]
+                if kommune in kommune_names:
+                    latitude = float(csv_row["latitude"])
+                    longitude = float(csv_row["longitude"])
+                    break
+        if latitude is None:
+            raise ValueError(f"Fant ikke kommune '{kommune}' in kommuners_koordinater.csv")
+        print(f"Coordinates for {kommune.title()}: {latitude}, {longitude}")
 
-# "When not using cache"
-if not use_cache: 
-    url = f"https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={latitude}&lon={longitude}"
-    headers = {"User-Agent": "BjornHaave/1.0 github.com/haaveb"} # User-Agent required by met.no.
-    response = requests.get(url, headers=headers)
-    weather_data = response.json()
-    # Save only the relevant part (timeseries) and a timestamp
-    with open(cache_dumpfile, 'w', encoding='utf-8') as cache_file:
-        json.dump(weather_data, cache_file)
-    print(f"Fetched and cached new weather data for {kommune}")
+# ================================================================================================
+# COLLECT & DECIPHER WEATHER DATA
+# ================================================================================================
 
-# Untangle relevant data.
-weather_timeseries = weather_data["properties"]["timeseries"] # Yields a list of dicts.
-norway_timezone = ZoneInfo("Europe/Oslo") # It's Norway time.
-
-times_list = [] # Versatile variable in this script.
+# Initialize data lists (used by both test and normal modes)
+times_list = []
 temperature_list = []
 precipitation_list = []
 windspeeds_list = []
 
-os.makedirs("output", exist_ok=True)
-output_csv_filename = os.path.join("output", "norweather_twoday.csv")
-with open(output_csv_filename, 'w', newline='', encoding='utf-8') as csv_file:
-    csv_writer = csv.writer(csv_file)
-    csv_writer.writerow(['time', 'temperature', 'precipitation', 'windspeed'])
+if USE_TEST_PLOT:
+    # ---- TEST MODE: GENERATE DATA (W/ LARGE TEMP VARIATION) ------------------------------------
+    print(f"Using TEST MODE: {TEST_TEMP_RANGE[0]}°C to {TEST_TEMP_RANGE[1]}°C over {FORECAST_HOURS} hours")
+    
+    # Generate smooth temperature curve from min to max
+    for hour in range(FORECAST_HOURS + 1):
+        # Create smooth sinusoidal temperature progression
+        progress = hour / FORECAST_HOURS  # 0 to 1
+        temp = TEST_TEMP_RANGE[0] + (TEST_TEMP_RANGE[1] - TEST_TEMP_RANGE[0]) * progress
+        
+        # Add some realistic variation
+        temp += 3 * np.sin(progress * 4 * np.pi)  # Small oscillations
+        
+        # Generate time labels
+        time_label = f"{hour % 24:02d}.00"
+        
+        # Generate minimal precipitation/wind for completeness
+        precip = max(0, 2 * np.sin(progress * np.pi) + np.random.normal(0, 0.5))
+        wind = 5 + 3 * np.sin(progress * 2 * np.pi) + np.random.normal(0, 1)
+        
+        times_list.append(time_label)
+        temperature_list.append(temp)
+        precipitation_list.append(max(0, precip))
+        windspeeds_list.append(max(0, wind))
+    
+    # Save test data to CSV
+    os.makedirs("output", exist_ok=True)
+    output_csv_filename = os.path.join("output", "norweather_twoday.csv")
+    with open(output_csv_filename, 'w', newline='', encoding='utf-8') as csv_file:
+        csv_writer = csv.writer(csv_file)
+        csv_writer.writerow(['time', 'temperature', 'precipitation', 'windspeed'])
+        for i in range(len(times_list)):
+            csv_writer.writerow([
+                times_list[i], 
+                temperature_list[i], 
+                precipitation_list[i], 
+                windspeeds_list[i]
+            ])
+    # --------------------------------------------------------------------------------------------
 
-    prev_datetime = None
-    count = 0
-    for hourly_forecast_entry in weather_timeseries:
-        if count > FORECAST_HOURS:
-            break
+else:
+    # ---- NORMAL MODE: USE REAL WEATHER DATA ----------------------------------------------------
+    os.makedirs("temp_data", exist_ok=True)
 
-        time_string = hourly_forecast_entry["time"]
-        datetime_object = datetime.fromisoformat(time_string).astimezone(norway_timezone)
-
-        # Only intervals of 1 hour.
-        if prev_datetime is None or (datetime_object - prev_datetime).total_seconds() == 3600:
-            # Collect
-            formatted_time_string = datetime_object.strftime('%H.%M')  # e.g., "10.00"
-            instant_weather_details = hourly_forecast_entry["data"]["instant"]["details"]
-            temp = instant_weather_details.get("air_temperature")
-            precipitation = hourly_forecast_entry["data"].get("next_1_hours", {}).get("details", {}).get("precipitation_amount", 0)
-            windspeed = instant_weather_details.get("wind_speed")
-
-            # Deliver
-            row = [formatted_time_string, temp, precipitation, windspeed]
-            times_list.append(row[0])
-            temperature_list.append(row[1])
-            precipitation_list.append(row[2])
-            windspeeds_list.append(row[3])
-            csv_writer.writerow(row)
-
-            prev_datetime = datetime_object
-            count += 1
+    # Check whether cache exists + is recent (from last half hour)
+    # Special handling for sample cases
+    if kommune in ["sample1", "sample2"]:
+        sample_cache_file = os.path.join("test_data", f"{kommune}.json")
+        if os.path.exists(sample_cache_file):
+            with open(sample_cache_file, 'r', encoding='utf-8') as cache_file:
+                weather_data = json.load(cache_file)
+            print(f"Using sample data for {kommune}")
+            use_cache = True
         else:
-            break  # Stop at first non-hourly interval
+            raise FileNotFoundError(f"Sample data file not found: {sample_cache_file}")
+    
+    # Normal cache handling
+    else:
+        cache_dumpfile = os.path.join("temp_data", f"weather_cache_{kommune}.json")
+        use_cache = False
+        if os.path.exists(cache_dumpfile):
+            cache_mtime = os.path.getmtime(cache_dumpfile)
+            cache_age_seconds = (datetime.now().timestamp() - cache_mtime)
+            if cache_age_seconds < 1800: 
+                with open(cache_dumpfile, 'r', encoding='utf-8') as cache_file:
+                    weather_data = json.load(cache_file)
+                print(f"Using cached weather data for {kommune} (age: {int(cache_age_seconds/60)} min)")
+                use_cache = True
+    
+    # When not using cache
+    if not use_cache: 
+        url = f"https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={latitude}&lon={longitude}"
+        headers = {"User-Agent": "BjornHaave/1.0 github.com/haaveb"} # User-Agent required by met.no.
+        response = requests.get(url, headers=headers)
+        weather_data = response.json()
+        # Save only the relevant part (timeseries) and a timestamp
+        with open(cache_dumpfile, 'w', encoding='utf-8') as cache_file:
+            json.dump(weather_data, cache_file)
+        print(f"Fetched and cached new weather data for {kommune}")
+    # --------------------------------------------------------------------------------------------
 
-# ==== PLOTTING. ====
+    # ---- UNTANGLE RELEVANT DATA ----------------------------------------------------------------
+    weather_timeseries = weather_data["properties"]["timeseries"] # Yields a list of dicts.
+    norway_timezone = ZoneInfo("Europe/Oslo")                     # It's Norway time.
+
+    os.makedirs("output", exist_ok=True)
+    output_csv_filename = os.path.join("output", "norweather_twoday.csv")
+    with open(output_csv_filename, 'w', newline='', encoding='utf-8') as csv_file:
+        csv_writer = csv.writer(csv_file)
+        csv_writer.writerow(['time', 'temperature', 'precipitation', 'windspeed'])
+
+        prev_datetime = None
+        count = 0
+        for hourly_forecast_entry in weather_timeseries:
+            if count > FORECAST_HOURS:
+                break
+
+            time_string = hourly_forecast_entry["time"]
+            datetime_object = datetime.fromisoformat(time_string).astimezone(norway_timezone)
+
+            # Only intervals of 1 hour
+            if prev_datetime is None or (datetime_object - prev_datetime).total_seconds() == 3600:
+                # Collect
+                formatted_time_string = datetime_object.strftime('%H.%M')  # e.g., "10.00"
+                instant_weather_details = hourly_forecast_entry["data"]["instant"]["details"]
+                temp = instant_weather_details.get("air_temperature")
+                windspeed = instant_weather_details.get("wind_speed")
+                precipitation = (
+                    hourly_forecast_entry["data"]
+                    .get("next_1_hours", {}).get("details", {}).get("precipitation_amount", 0)
+                )
+
+                # Deliver
+                row = [formatted_time_string, temp, precipitation, windspeed]
+                times_list.append(row[0])
+                temperature_list.append(row[1])
+                precipitation_list.append(row[2])
+                windspeeds_list.append(row[3])
+                csv_writer.writerow(row)
+
+                prev_datetime = datetime_object
+                count += 1
+            else:
+                break  # Stop at first non-hourly interval
+    # --------------------------------------------------------------------------------------------
+
+# ================================================================================================
+# PLOTTING: (1) GENERAL
+# ================================================================================================
 figure, temperature_axes = plt.subplots(figsize=(10, 6))
 figure.suptitle(
     r"$\bf{Temperature}$, $\bf{Precipitation}$ and $\bf{Windspeed}$ - next "
@@ -174,7 +242,7 @@ temperature_axes.set_ylabel('Temperature  (°C)', fontweight='bold', labelpad=12
 
 # Set x-ticks
 if FORECAST_HOURS > 24: 
-    tick_interval = 4 # Avoiding x-axis clutter
+    tick_interval = 2 # Avoiding x-axis clutter
     xtick_indices = list(range(0, len(times_list), tick_interval))
     temperature_axes.set_xticks(xtick_indices)
     temperature_axes.set_xticklabels(
@@ -192,7 +260,7 @@ if SHOW_COLORBAR:
         orientation='vertical', pad=0.08, location='left'
     )
 
-# Create a second y-axis for precipitation (some space below is good) and windspeed.
+# Create a second y-axis for precipitation and windspeed (some space below is good).
 precipitation_axes = temperature_axes.twinx() # prec/temp: similar range (different units)
 precipitation_axes.set_ylabel(
     'Precipitation  (mm)   /   Windspeed  (m/s)', 
@@ -215,8 +283,9 @@ precipitation_axes.scatter(
 # Legend for precipitation and windspeed
 precipitation_axes.legend(loc='upper right')
 
-# ---- UNIFORM GRIDLINES AND VISUAL TWEAKS ----
-# (Only) vertical gridlines
+# ================================================================================================
+# PLOTTING: (2) UNIFORM GRIDLINES AND VISUAL TWEAKS
+# ================================================================================================
 temperature_axes.grid(True, axis='x', 
                       linewidth=1, color=GRIDLINE_COLOR, alpha=0.4, zorder=-1
                       ) 
@@ -224,7 +293,7 @@ temperature_axes.grid(True, axis='x',
 temp_min, temp_max = temperature_axes.get_ylim()
 precip_min, precip_max = precipitation_axes.get_ylim()
 
-# Visual Preference: small minimum temperature replaced with zero.
+# Visual Preference: Small minimum temperature replaced with zero.
 if 0 < temp_min < 5:
     temp_min = 0
 
@@ -251,15 +320,38 @@ else:
 
 # Find the smallest integer N, so that N*small_range >= large_range
 N = int(np.ceil(large_range / small_range)) if small_range > 0 else 1
-new_large_range = N * small_range
+fitted_large_range = N * small_range
 
 # Apply new limits and ticks
-large_axes.set_ylim(large_min, large_min + new_large_range)
-large_ticks = np.arange(large_min, large_min + new_large_range + 1, 1)
-large_axes.set_yticks(large_ticks)
-small_axes.set_ylim(small_min, small_max)
-small_ticks = np.arange(small_min, small_max + 1, 1)
-small_axes.set_yticks(small_ticks)
+large_axes.set_ylim(large_min, large_min + fitted_large_range)
+
+# ---- USING TEST PLOT: SPARSE TICKS FOR LARGE RANGES --------------------------------------------
+if USE_TEST_PLOT:
+    temp_tick_interval = 10   # Every 10 degrees
+    precip_tick_interval = 2  # Every 2mm, m/s
+    
+    if large_axes == temperature_axes:
+        # Temperature is large axis - use sparse temperature ticks
+        large_ticks = np.arange(large_min, large_min + fitted_large_range + 1, temp_tick_interval)
+        large_axes.set_yticks(large_ticks)
+        # Precipitation stays normal
+        small_ticks = np.arange(small_min, small_max + 1, precip_tick_interval)
+        small_axes.set_yticks(small_ticks)
+    else:
+        # Precipitation is large axis - use sparse precip ticks  
+        large_ticks = np.arange(large_min, large_min + fitted_large_range + 1, precip_tick_interval)
+        large_axes.set_yticks(large_ticks)
+        # Temperature uses sparse ticks
+        small_ticks = np.arange(small_min, small_max + 1, temp_tick_interval)
+        small_axes.set_yticks(small_ticks)
+# ------------------------------------------------------------------------------------------------
+else:
+    # Normal mode - dense ticks every 1 degree, mm, m/s
+    large_ticks = np.arange(large_min, large_min + fitted_large_range + 1, 1)
+    large_axes.set_yticks(large_ticks)
+    small_axes.set_ylim(small_min, small_max)
+    small_ticks = np.arange(small_min, small_max + 1, 1)
+    small_axes.set_yticks(small_ticks)
 
 for large_tick in large_ticks:
     # Draw horizontal lines on the large_axes (which has the most ticks)
@@ -269,8 +361,11 @@ for large_tick in large_ticks:
     # Use the actual axis limits for proper coordinate conversion
     large_ylim_min, large_ylim_max = large_axes.get_ylim()
     small_ylim_min, small_ylim_max = small_axes.get_ylim()
-    small_equiv = small_ylim_min + (large_tick - large_ylim_min) * (small_ylim_max - small_ylim_min) / (large_ylim_max - large_ylim_min)
-    
+    small_equiv = (
+    small_ylim_min
+    + (large_tick - large_ylim_min) * (small_ylim_max - small_ylim_min)
+    / (large_ylim_max - large_ylim_min)
+)
     # Check if any small_axes tick is close to this equivalent position  
     is_aligned = any(abs(small_tick - small_equiv) < 0.01 for small_tick in small_ticks)
     
@@ -281,14 +376,13 @@ for large_tick in large_ticks:
         # Thin line for non-aligned y-ticks  
         large_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=0.8, alpha=0.5, zorder=-1)
 
-# Add bold vertical line(s) for midnight
+# Add bold vertical line(s) at midnight
 for idx, t in enumerate(times_list):
     if t.startswith('00.'):
         y_min, y_max = temperature_axes.get_ylim()
         temperature_axes.plot([idx, idx], [y_min, y_max], 
-                             color=NEWDAY_COLOR, linewidth=4, alpha=1.0, zorder=2)
-        
-# ------------------------------------------
+                              color=NEWDAY_COLOR, linewidth=4, alpha=1.0, zorder=2
+                              )        
 
 plt.tight_layout()
 plt.show()
