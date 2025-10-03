@@ -4,17 +4,18 @@
 import os
 import csv
 import json
-from datetime import datetime
+import argparse
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 import requests
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from matplotlib.collections import LineCollection
 from matplotlib.colors import TwoSlopeNorm
+from matplotlib.collections import LineCollection
 
-from palette_cold_neutral_warm import get_temperature_colormap, get_colorblind_colormap
+from palette_cold_neutral_warm import get_temperature_colormap
 
 # ================================================================================================
 # FREQUENTLY ADJUSTED THINGS (& SOME RELATED LOGIC) GROUPED HERE 
@@ -47,18 +48,65 @@ COLORMAP, _ = get_temperature_colormap(N_COLORS)
 
 BACKGROUND_COLOR = "#BCB8BD" # e.g. "#BCB8BD"
 GRIDLINE_COLOR =   "#767A72" # e.g. "#767A72"
-NEWDAY_COLOR = "#545753"     # e.g. "#545753" vert. gridline at midnight
+NEWDAY_COLOR =     "#545753" # e.g. "#545753" vert. gridline at midnight
 mpl.rcParams['figure.facecolor'] = BACKGROUND_COLOR
 mpl.rcParams['axes.facecolor'] = BACKGROUND_COLOR
 
 # ================================================================================================
-# GET INPUT NAME OF KOMMUNE, LOOK UP COORDINATES IN LOCAL FILE.
+# COMMAND-LINE ARGUMENTS & INPUT HANDLING
 # ================================================================================================
-if USE_TEST_PLOT:
-    kommune = "Test Plot"  # Sets title. Test mode logic is found in the next section.
-else:
-    kommune = input("Navn på kommune: ").strip().lower() # Prompt only in normal mode
 
+parser = argparse.ArgumentParser(
+    description='Norwegian weather forecast visualization'
+)
+parser.add_argument(
+    'kommune', nargs='?', help='Norwegian kommune name (e.g., oslo, bergen)'
+)
+group = parser.add_mutually_exclusive_group()
+group.add_argument(
+    '--noplot', action='store_true',
+    help='CLI-only: print forecast to the command line, no plot'
+)
+group.add_argument(
+    '--onlyplot', action='store_true',
+    help='Plot-only: suppress CLI (command-line) output'
+)
+parser.add_argument('--test', action='store_true', help='Use test plot with synthetic data')
+parser.add_argument(
+    '--hours', type=int, default=32, metavar='N',
+    help='Number of forecast hours, (1 to max. 48)'
+)
+args = parser.parse_args()
+
+# Validate hours argument
+if args.hours < 1 or args.hours > 48:
+    parser.error("Number of hours must be between 1 and 48")
+
+# Update FORECAST_HOURS from argument
+FORECAST_HOURS = args.hours
+
+if args.test:
+    USE_TEST_PLOT = True
+    kommune = "Test Plot"
+elif args.kommune:
+    kommune = args.kommune.strip().lower()
+    USE_TEST_PLOT = False
+else:
+    kommune = input("Navn på kommune: ").strip().lower()
+    USE_TEST_PLOT = False
+
+# Output mode: by default show BOTH terminal output and plot
+SHOW_PLOT = not args.noplot
+SHOW_TERMINAL = not args.onlyplot
+
+# ================================================================================================
+# LOOK UP COORDINATES FOR KOMMUNE (WHEN NOT IN TEST MODE)
+# ================================================================================================
+
+if USE_TEST_PLOT:
+    # Title already set above; synthetic data generated in next section
+    pass
+else:
     # HANDLE SPECIAL INPUT CASES
     if kommune == "sample1":
         latitude, longitude = 59.9139, 10.7522  # Oslo coordinates
@@ -72,13 +120,17 @@ else:
         with open("kommuners_koordinater.csv", encoding="utf-8") as csv_file:
             csv_reader = csv.DictReader(csv_file)
             for csv_row in csv_reader:
-                kommune_names = [part.strip().lower() for part in csv_row["kommune"].split('-')]
+                kommune_names = [
+                    part.strip().lower() for part in csv_row["kommune"].split('-')
+                ]
                 if kommune in kommune_names:
                     latitude = float(csv_row["latitude"])
                     longitude = float(csv_row["longitude"])
                     break
         if latitude is None:
-            raise ValueError(f"Fant ikke kommune '{kommune}' in kommuners_koordinater.csv")
+            raise ValueError(
+                f"Fant ikke kommune '{kommune}' in kommuners_koordinater.csv"
+            )
         print(f"Coordinates for {kommune.title()}: {latitude}, {longitude}")
 
 # ================================================================================================
@@ -163,13 +215,25 @@ else:
     # When not using cache
     if not use_cache: 
         url = f"https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={latitude}&lon={longitude}"
-        headers = {"User-Agent": f"{GITHUB_USERNAME}/1.0 github.com/{GITHUB_USERNAME}/norweather-twoday"}# User-Agent required by met.no.
+        headers = {"User-Agent": f"norweather-twoday/1.0 github.com/{GITHUB_USERNAME}/norweather-twoday"}
+        
+        # Add If-Modified-Since if cache exists (even if expired)
+        if os.path.exists(cache_dumpfile):
+            cache_mtime = os.path.getmtime(cache_dumpfile)
+            cache_time = datetime.fromtimestamp(cache_mtime, tz=timezone.utc)
+            headers["If-Modified-Since"] = cache_time.strftime('%a, %d %b %Y %H:%M:%S GMT')
+        
         response = requests.get(url, headers=headers)
-        weather_data = response.json()
-        # Save only the relevant part (timeseries) and a timestamp
-        with open(cache_dumpfile, 'w', encoding='utf-8') as cache_file:
-            json.dump(weather_data, cache_file)
-        print(f"Fetched and cached new weather data for {kommune}")
+        
+        if response.status_code == 304:  # Not Modified
+            print(f"Server says data unchanged, using existing cache for {kommune}")
+            with open(cache_dumpfile, 'r', encoding='utf-8') as cache_file:
+                weather_data = json.load(cache_file)
+        else:
+            weather_data = response.json()
+            with open(cache_dumpfile, 'w', encoding='utf-8') as cache_file:
+                json.dump(weather_data, cache_file)
+            print(f"Fetched and cached new weather data for {kommune}")
     # --------------------------------------------------------------------------------------------
 
     # ---- UNTANGLE RELEVANT DATA ----------------------------------------------------------------
@@ -218,13 +282,148 @@ else:
     # --------------------------------------------------------------------------------------------
 
 # ================================================================================================
+# COMMAND-LINE FORECAST
+# ================================================================================================
+
+if SHOW_TERMINAL:
+    # Check if terminal supports ANSI escape codes
+    def supports_ansi():
+        """Check if terminal supports ANSI escape codes"""
+        import sys
+        return (
+            hasattr(sys.stdout, 'isatty') and sys.stdout.isatty() and
+            (os.name != 'nt' or 'ANSICON' in os.environ or 'WT_SESSION' in os.environ or 
+             'TERM_PROGRAM' in os.environ)
+        )
+    
+    # ANSI escape codes - only use if supported
+    if supports_ansi():
+        BOLD = '\033[1m'
+        ITALIC = '\033[3m'
+        UNDERLINE = '\033[4m'
+        RESET = '\033[0m'  # Reset to normal
+        YELLOW = '\033[93m'
+        CYAN = '\033[96m'
+        V_BAR = '┃'
+        H_BAR = '─'
+    else:
+        # Fallback for basic terminals (Windows CMD)
+        BOLD = ITALIC = UNDERLINE = RESET = YELLOW = CYAN = ''
+        V_BAR = '|'
+        H_BAR = '-'
+
+    if temperature_list and precipitation_list and windspeeds_list:
+        # Header
+        print(f"{BOLD}Forecast for {kommune.title()}, next {FORECAST_HOURS} hours:{RESET}")
+        print()  # Aesthetic line break
+
+        # Sampled time-temperature pairs
+        n = len(times_list)
+        if n <= 7:
+            step = 1
+        elif n <= 13:
+            step = 2
+        elif n <= 19:
+            step = 3
+        else:
+            step = 4
+        indices = list(range(0, n, step)) if n > 0 else []
+        if indices and indices[-1] != n - 1:
+            indices.append(n - 1)
+
+        def format_val(val, width=None):
+            """Format value with decimal logic. Optional width for alignment."""
+            if val is None or (isinstance(val, float) and np.isnan(val)):
+                result = "NA"
+            else:
+                val = float(val)
+                # One decimal place for val < 10, otherwise integer.
+                # Reasonable for these ranges, aids readability.
+                if abs(val) < 10:
+                    result = f"{val:.1f}"
+                else:
+                    result = f"{int(round(val))}"
+            
+            # Apply width/alignment if specified
+            return f"{result:>{width}}" if width else result
+
+        if indices:
+            # Header for the hourly forecast table
+            print(f"  {'Time':<6} {V_BAR} {' Temp.':<7} {V_BAR} {' Wind':<8} {V_BAR} {' Precip.':<8}")
+            separator = f"  {'':─<6} {V_BAR} {'':─<7} {V_BAR} {'':─<8} {V_BAR} {'':─<8}".replace('─', H_BAR)
+            print(separator)
+            
+            for i in indices:
+                t_raw = temperature_list[i]
+                p_raw = precipitation_list[i]
+                w_raw = windspeeds_list[i]
+                time_str = str(times_list[i]).replace('.', ':')
+                
+                # Format values with proper alignment for CMD compatibility
+                t_fmt = f"{format_val(t_raw, 4)} °C"
+                p_fmt = f"{format_val(p_raw, 4)} mm"
+                w_fmt = f"{format_val(w_raw, 4)} m/s"
+                
+                if supports_ansi():
+                    # Use colors with exact spacing - account for ANSI codes with wider fields
+                    temp_colored = f"{YELLOW}{t_fmt}{RESET}"
+                    precip_colored = f"{CYAN}{p_fmt}{RESET}"
+                    print(f"  {time_str:<6} {V_BAR} {temp_colored:<15} {V_BAR} {w_fmt:<8} {V_BAR} {precip_colored:<15}")
+                else:
+                    # CMD-friendly without color codes - use exact widths
+                    print(f"  {time_str:<6} {V_BAR} {t_fmt:<7} {V_BAR} {w_fmt:<8} {V_BAR} {p_fmt:<7}")
+        else:
+            print("  No hourly forecast data available.")
+
+        print()  # Aesthetic line break
+        print(f"{BOLD}  Summary:{RESET}")
+        
+        # Summary stats
+        t_avg = np.nanmean(temperature_list)
+        p_total = np.nansum(precipitation_list)
+        w_max = np.nanmax(windspeeds_list)
+        
+        # Separate values and units for three-block alignment
+        t_str = format_val(t_avg)
+        w_str = format_val(w_max)
+        p_str = format_val(p_total)
+        
+        # Define field widths for alignment
+        label_width = 23  # "• Average temperature:"
+        value_width = 4   # Left-aligned values (tight spacing)
+        unit_width = 4    # Right-aligned units
+        
+        # Print with three-block alignment - with Windows CMD fallback
+        try:
+            print(f"{YELLOW}  {'• Average temperature:':<{label_width}} {t_str:<{value_width}} {'°C':<{unit_width}}{RESET}")
+            print(f"  {'• Maximum windspeed:':<{label_width}} {w_str:<{value_width}} {'m/s':<{unit_width}}")
+            print(f"{CYAN}  {'• Total precipitation:':<{label_width}} {p_str:<{value_width}} {'mm':<{unit_width}}{RESET}")
+            
+        except UnicodeEncodeError:
+            # Fallback for terminals that don't support Unicode bullets
+            print(f"{YELLOW}   {'Average temperature:':<{label_width-1}} {t_str:<{value_width}} {'°C':<{unit_width}}{RESET}")
+            print(f"   {'Maximum windspeed:':<{label_width-1}} {w_str:<{value_width}} {'m/s':<{unit_width}}")
+            print(f"{CYAN}   {'Total precipitation:':<{label_width-1}} {p_str:<{value_width}} {'mm':<{unit_width}}{RESET}")
+            
+        print()  # Aesthetic line break
+        print("  Weather data: Norwegian Meteorological Institute (MET.no)")
+        print()  # Aesthetic line break
+    else:
+        print("No data available for command-line forecast.")
+else:
+    print("Command-line output suppressed (--onlyplot).")
+
+# ================================================================================================
 # PLOTTING: (1) GENERAL
 # ================================================================================================
 figure, temperature_axes = plt.subplots(figsize=(10, 6))
 figure.suptitle(
     r"$\bf{Temperature}$, $\bf{Precipitation}$ and $\bf{Windspeed}$ - next "
     f"{FORECAST_HOURS} hours in {kommune.title()}", fontsize=14
-    )
+)
+# Attribution text:
+figure.text(0.5, 0.94, "Data: Norwegian Meteorological Institute (MET.no)", 
+           ha='center', va='top', fontsize=9, style='italic', alpha=0.8)
 
 time_indices = np.arange(len(times_list))
 temperature_values = temperature_list
@@ -280,6 +479,11 @@ precipitation_axes.tick_params(axis='y')
 precipitation_axes.plot(
     time_indices, precipitation_list, label='Precipitation', 
     linewidth=3.2, color='tab:blue', zorder=5
+)
+
+# Fill the area under the precipitation curve
+precipitation_axes.fill_between(
+    time_indices, precipitation_list, color='tab:blue', alpha=0.3, zorder=4
 )
 
 # Plot windspeed as black points
@@ -393,4 +597,8 @@ for idx, t in enumerate(times_list):
                               )        
 
 plt.tight_layout()
-plt.show()
+
+if SHOW_PLOT:
+    plt.show()
+else:
+    print("Plotting disabled (--noplot).")
