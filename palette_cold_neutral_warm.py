@@ -196,6 +196,49 @@ def get_colorblind_colormap(
     return ListedColormap(cb_palette, name=cmap_name), cb_palette
 
 # ============================================================================
+# STATIC PALETTE EXPORT
+# ============================================================================
+def export_static_palette(filename="palette_static.py"):
+    """Export the colormap as static data for dependency-free usage."""
+    
+    # Generate the palette using current LUV interpolation
+    n_colors = 256  # High resolution just in case
+    _, palette_hex = get_temperature_colormap(n_colors)
+    
+    # Create the static file content
+    static_content = f'''# ============================================================================
+# STATIC TEMPERATURE PALETTE
+# ============================================================================
+# 
+# This file was auto-generated from palette_cold_neutral_warm.py
+# Contains pre-computed color values.
+#
+# Generated with {n_colors} colors using LUV color space interpolation.
+# Temperature range: -15°C to +30°C
+# ============================================================================
+
+from matplotlib.colors import ListedColormap
+
+# Pre-computed color palette (hex values) - LUV interpolated
+TEMPERATURE_PALETTE_HEX = {palette_hex}
+
+def get_colormap():
+    """Get the temperature colormap without any external dependencies."""
+    return ListedColormap(TEMPERATURE_PALETTE_HEX, name="cold_neutral_warm_static")
+
+def get_palette():
+    """Get the raw hex color list."""
+    return TEMPERATURE_PALETTE_HEX
+'''
+    
+    # Write the file
+    with open(filename, 'w', encoding='utf-8') as f:
+        f.write(static_content)
+    print(f"✅ Static palette exported to: {filename}")
+    print(f"   Contains {len(palette_hex)} colors")
+    print(f"   No external dependencies required!")
+
+# ============================================================================
 # DEMO CONFIGURATION & VISUALIZATION
 # ============================================================================
 if __name__ == "__main__":
@@ -320,3 +363,8 @@ if __name__ == "__main__":
         plt.tight_layout()
 
     plt.show()
+    print("GENERATING STATIC PALETTE FOR DEPENDENCY-FREE USAGE...")
+    print("="*60)
+    export_static_palette()
+
+    

@@ -15,7 +15,8 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import TwoSlopeNorm
 from matplotlib.collections import LineCollection
 
-from palette_cold_neutral_warm import get_temperature_colormap
+# from palette_cold_neutral_warm import get_temperature_colormap
+from palette_static import get_colormap
 
 # ================================================================================================
 # FREQUENTLY ADJUSTED CONSTANTS GROUPED HERE 
@@ -32,7 +33,8 @@ REALLYWARM = 30                     # Defines the warmest color.
 TRULYCOLD = -REALLYWARM/2           # Defines the coldest color.
 N_COLORS = int(REALLYWARM)*2+1      # Odd number centers white-ish color segment at zero.
 
-COLORMAP, _ = get_temperature_colormap(N_COLORS)
+# COLORMAP, _ = get_temperature_colormap(N_COLORS)
+COLORMAP = get_colormap()
 # ------------------------------------------------------------------------------------------------
 
 PLOT_COLORS = ("#BCB8BD", "#767A72", "#545753")
@@ -375,8 +377,7 @@ else:
                 json.dump(weather_data, cache_file)
             print(f"Fetched and cached new weather data for {kommune}")
     # --------------------------------------------------------------------------------------------
-    print(f"Request Status Code: {response.status_code}")
-    print(f"Response Body (Text): {response.text}")
+
     # ---- UNTANGLE RELEVANT DATA ----------------------------------------------------------------
     weather_timeseries = weather_data["properties"]["timeseries"] # Yields a list of dicts.
     norway_timezone = ZoneInfo("Europe/Oslo")                     # It's Norway time.

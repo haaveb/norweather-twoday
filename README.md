@@ -2,7 +2,7 @@
 
 ## Overview
 
-The script `norweather_twoday.py` fetches weather data via [MET Weather API](https://api.met.no/) for a given Norwegian municipality, and whose lat. and long. coordinates are found in the local catalogue `kommuners_koordinater.csv` - made with data from [Kartverket](https://www.kartverket.no/). It prompts for the name (Norwegian, not case-sensitive) of a municipality (`kommune`). Data is then gathered & analyzed before presenting the forecast as both a visual plot and command-line table showing temperature, precipitation, wind speeds and wind gusts. I've set a max. limit of 48 hrs because past roughly 54 hrs, time intervals would deviate from 1 hr. By default uses my custom colormap, assembled in `palette_cold_neutral_warm.py`. Otherwise, e.g. `managua_r` is good.
+The script `norweather_twoday.py` fetches weather data via [MET Weather API](https://api.met.no/) for a given Norwegian municipality, and whose lat. and long. coordinates are found in the local catalogue `kommuners_koordinater.csv` - made with data from [Kartverket](https://www.kartverket.no/). It prompts for the name (Norwegian, not case-sensitive) of a municipality (`kommune`). Data is then gathered & analyzed before presenting the forecast as both a visual plot and command-line table showing temperature, precipitation, wind speeds and wind gusts. I've set a max. limit of 48 hrs because past roughly 54 hrs, time intervals would deviate from 1 hr. By default uses custom colormap, defined in `palette_static.py`, which in turn was assembled in `palette_cold_neutral_warm.py`. Otherwise, e.g. `viridis` might be good.
 
 ### Wind Data Visualization
 
@@ -94,13 +94,21 @@ python norweather_twoday.py --test
 Python 3.7+
 
 ```bash
-pip install requests matplotlib numpy scikit-image
+pip install requests matplotlib numpy tzdata
 ```
-where the latter is for the custom colormap.
+
+### For editing Custom Colormap 
+
+The included colormap (`palette_static.py`) works without additional dependencies. To regenerate or modify the colormap (from `palette_cold_neutral_warm.py`):
+
+```bash
+# Requires system dependencies
+pip install scikit-image scipy
+```
 
 ## Background and process
 
-This short project was made in order to explore basic data analysis & general syntax in Python. Spent some time constructing an intuitive colormap for weather temperature, taking into account colorblindness accessibility. Explored the subject of perceptual uniformity and CIELAB and CIELUV color spaces. Aligning gridlines took a little while too.
+This short project was made in order to explore basic data analysis & general syntax in Python. Spent some time constructing an intuitive colormap for weather temperature, taking into account colorblindness accessibility. Explored the subject of perceptual uniformity and CIELAB and CIELUV color spaces. The colormap is exported as static data to eliminate heavy dependencies. Aligning gridlines in a reasonable manner took a little while too.
 
 ## Limitations/Notes
 
@@ -122,11 +130,19 @@ Gave up on some expansions, first and foremost API geodata collection. Thus ende
 ![CLI output](sample_cli.png)
 *Example: `python norweather_twoday.py oslo`*
 
+## Repository Structure
+
+- `norweather_twoday.py` - Main weather forecast script
+- `palette_static.py` - Pre-computed colormap (no external dependencies)
+- `palette_cold_neutral_warm.py` - Colormap generator (development tool)
+- `kommuners_koordinater.csv` - Norwegian municipality coordinates catalogue
+- `sample_data/` - Sample weather data for testing
+
 ## Testing
 
 Test mode generates synthetic data, intented to check functionality with a very large temp. range.
 
-Sample weather data is provided for testing the script, particularly the grid alignment in plotting. U
+Sample weather data is provided for testing the script, in particular the plot grid alignment.
 
 - `--test` - Synthetic data with extreme temperature range
 - `sample1` - Hammerfest sample with precipitation/wind range larger than temperature range.
