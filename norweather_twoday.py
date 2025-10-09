@@ -579,7 +579,25 @@ else:
 # ================================================================================================
 # PLOTTING: (1) GENERAL
 # ================================================================================================
-figure, temperature_axes = plt.subplots(figsize=(10, 6))
+
+#  Dynamic figure sizing based on screen resolution w/ fallback
+try:
+    import tkinter as tk
+    root = tk.Tk()
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+    root.destroy()
+
+    # Calculate fig. size conservatively
+    fig_width_inches = screen_width / 120
+    fig_height_inches = screen_height / 140
+
+    figure, temperature_axes = plt.subplots(figsize=(fig_width_inches, fig_height_inches))
+    
+except Exception:
+    # Fallback to default size
+    figure, temperature_axes = plt.subplots(figsize=(10, 6))
+
 figure.suptitle(
     r"$\bf{Temperatur}$, $\bf{Nedbør}$ og $\bf{Vindstyrke}$ - de neste "
     f"{FORECAST_HOURS} timene i {(display_name or kommune.title())}", fontsize=14
@@ -637,7 +655,7 @@ if SHOW_COLORBAR:
 multivar_axes = temperature_axes.twinx()
 
 multivar_axes.set_ylabel(
-    'Nedbør (mm)  /  Vindstyrke (m/s)', 
+    'Nedbør (mm)  |  Vindstyrke (m/s)', 
     fontweight='bold', labelpad=20, fontsize=12
 )
 multivar_axes.tick_params(axis='y')
@@ -730,11 +748,11 @@ lg_axes.set_ylim(lg_min, lg_min + fitted_lg_range)
 # Function to determine tick interval based on data range
 def get_tick_interval(data_range):
     """Determine appropriate tick interval to avoid cluttered axes"""
-    if data_range <= 15:
+    if data_range <= 12:
         return 1
-    elif data_range <= 30:
+    elif data_range <= 24:
         return 2
-    elif data_range <= 60:
+    elif data_range <= 48:
         return 4
     else:
         return 8
@@ -828,7 +846,7 @@ else:
     temperature_axes.grid(True, axis='x', which='major',
                           linewidth=1.4, color=GRIDLINE_COLOR, alpha=0.4, zorder=-1)
 # ------------------------------------------------------------------------------------------------
-
+print(f"DEBUG: Multivar range: {multivar_range:.1f}, interval: {multivar_tick_interval}, ticks: {len(lg_ticks if lg_axes == multivar_axes else sm_ticks)}")
 # Add bold vertical line at midnight
 for idx, t in enumerate(times_list):
     if t.startswith('00.'):
@@ -838,6 +856,12 @@ for idx, t in enumerate(times_list):
                               )        
 
 plt.tight_layout()
+
+# Simple window maximization
+try:
+    plt.get_current_fig_manager().window.wm_state('zoomed')
+except:
+    pass
 
 if SHOW_PLOT:
     plt.show()
