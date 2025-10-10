@@ -25,3 +25,10 @@ output/
 # Ignore OS-specific files
 .DS_Store
 Thumbs.db
+
+# Ignore virtual environment directories
+venv/
+
+# Ignore prefix "dev_"
+dev_*/
+dev_*

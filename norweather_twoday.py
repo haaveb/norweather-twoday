@@ -62,17 +62,17 @@ group1.add_argument(
 
 group2 = parser.add_mutually_exclusive_group(required=False)
 group2.add_argument(
-    '--noplot', action='store_true',
+    '--noplot', '--ikkeplot', action='store_true',
     help='Værvarsel til kommandolinje, intet plot'
 )
 group2.add_argument(
-    '--onlyplot', action='store_true',
-    help='Command-line forecast disabled, only plot shown (--noplot)'
+    '--onlyplot', '--kunplot', action='store_true',
+    help='Viser plot, ikke kommandilinje-varsel'
 )
 
 # Add --hours argument
 parser.add_argument(
-    '--hours', type=int, default=48, metavar='N',
+    '--hours', '--timer', type=int, default=48, metavar='N',
     help='Antall timer for værvarsel (1 til maks. 48)'
 )
 
@@ -846,7 +846,7 @@ else:
     temperature_axes.grid(True, axis='x', which='major',
                           linewidth=1.4, color=GRIDLINE_COLOR, alpha=0.4, zorder=-1)
 # ------------------------------------------------------------------------------------------------
-print(f"DEBUG: Multivar range: {multivar_range:.1f}, interval: {multivar_tick_interval}, ticks: {len(lg_ticks if lg_axes == multivar_axes else sm_ticks)}")
+
 # Add bold vertical line at midnight
 for idx, t in enumerate(times_list):
     if t.startswith('00.'):
