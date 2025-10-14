@@ -1,10 +1,10 @@
 # ================================================================================================
 # TODAY'S WEATHER FOR A GIVEN NORWEGIAN KOMMUNE
 # ================================================================================================
+import argparse
 import os
 import csv
 import json
-import argparse
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -14,39 +14,17 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.colors import TwoSlopeNorm
 from matplotlib.collections import LineCollection
+from matplotlib.lines import Line2D
+from matplotlib.ticker import FuncFormatter
 
 # from palette_cold_neutral_warm import get_temperature_colormap
 from palette_static import get_colormap
 
 # ================================================================================================
-# FREQUENTLY ADJUSTED CONSTANTS GROUPED HERE 
-# ================================================================================================
-FORECAST_HOURS = 48                 # Number of forecast hours, <=48
-SHOW_COLORBAR = False
-
-USE_TEST_PLOT = False               # Test plot: large temperature range
-TEST_TEMPERATURE_RANGE = (-40, 40)  # Temperature range for test plot (min, max) - 80°C range
-TEST_PRECIP_SCALE = 3.5             # Scale factor for test precipitation to ensure grid alignment
-
-# ---- CUSTOM PALETTE FOR TEMPERATURE LINE -------------------------------------------------------
-REALLYWARM = 30                     # Defines the warmest color.
-TRULYCOLD = -REALLYWARM/2           # Defines the coldest color.
-N_COLORS = int(REALLYWARM)*2+1      # Odd number centers white-ish color segment at zero.
-
-# COLORMAP, _ = get_temperature_colormap(N_COLORS)
-COLORMAP = get_colormap()
-# ------------------------------------------------------------------------------------------------
-
-PLOT_COLORS = ("#BCB8BD", "#767A72", "#545753")
-BACKGROUND_COLOR, GRIDLINE_COLOR, NEWDAY_COLOR = PLOT_COLORS
-mpl.rcParams['figure.facecolor'] = BACKGROUND_COLOR
-mpl.rcParams['axes.facecolor'] = BACKGROUND_COLOR
-
-print()  # line break for e.g. repeat runs in terminal
-
-# ================================================================================================
 # COMMAND-LINE ARGUMENTS & INPUT HANDLING
 # ================================================================================================
+print()  # line break for e.g. repeat runs in terminal
+
 parser = argparse.ArgumentParser(
     description='Værvarsel for norsk kommune'
 )
@@ -76,19 +54,13 @@ parser.add_argument(
     help='Antall timer for værvarsel (1 til maks. 48)'
 )
 
+# Add --neon argument for dark mode
+parser.add_argument(
+    '--neon', action='store_true', help='Mørk bakgrunn med glød-effekter (neon).'
+)
+
 # Parse the arguments
 args = parser.parse_args()
-
-# Check for conflicting arguments
-if args.test and args.kommune:
-    parser.error("Kan ikke bruke både --test og kommune samtidig. Vennligst velg én av dem.")
-
-# Validate hours argument
-if args.hours < 1 or args.hours > 48:
-    parser.error("Antall timer må være mellom 1 og 48")
-
-# Update FORECAST_HOURS from argument
-FORECAST_HOURS = args.hours
 
 # Handle kommune input
 if args.test:
@@ -100,9 +72,71 @@ elif args.kommune:
 else:
     kommune = input("Navn på kommune: ").strip().lower()
 
-# Output mode: by default show BOTH terminal output and plot
+# Check for conflicting arguments
+if args.test and args.kommune:
+    parser.error("Kan ikke bruke både --test og kommune samtidig. Vennligst velg én av dem.")
+
+# Validate hours argument
+if not 1 <= args.hours <= 48:
+    parser.error("Antall timer må være mellom 1 og 48")
+
+# ================================================================================================
+# CONFIGURATION CONSTANTS
+# ================================================================================================
+
+# Primary Settings (Defaults overridden by args)
+FORECAST_HOURS = args.hours
+DARK_MODE = args.neon
+USE_TEST_PLOT = args.test
 SHOW_PLOT = not args.noplot
 SHOW_TERMINAL = not args.onlyplot
+
+# Plotting & Style Constants
+SHOW_COLORBAR = False
+TEST_TEMPERATURE_RANGE = (-40, 40)  
+TEST_PRECIP_SCALE = 3.5             # Scale factor for test precipitation to ensure grid alignment
+
+REALLYWARM = 30                     # Attach warmest color to anything >= this constant
+TRULYCOLD = -REALLYWARM/2           # Easy solution to make custom palette work
+
+# Glow effect parameters for precipitation line
+PRECIP_GLOW_WIDTHS = [10, 4]
+PRECIP_GLOW_ALPHAS = [0.08, 0.35]
+
+# Glow effect parameters for wind speed line
+WIND_GLOW_WIDTHS = [9, 3.8]
+WIND_GLOW_ALPHAS = [0.05, 0.1]
+
+# Glow effect for scatter plots
+GLOW_SCATTER_SIZES = [55, 110]      # Large value useful for gust visibility at midnight 
+GLOW_SCATTER_ALPHAS = [0.16, 0.08]
+
+# Output mode: by default show BOTH terminal output and plot
+if DARK_MODE:
+    COLORMAP = get_colormap(dark_mode=True)
+    PLOT_COLORS_DM = ("#a95dff", "#45a8e2", "#1d2127", "#465774", "#000000")
+    (
+        WIND_COLOR, PRECIP_COLOR, 
+        BACKGROUND_COLOR, GRIDLINE_COLOR, NEWDAY_COLOR
+    ) = PLOT_COLORS_DM
+    TEXT_COLOR = "#bfcadf"
+else:
+    COLORMAP = get_colormap(dark_mode=False)
+    PLOT_COLORS_LM = ("#121212", "#28849B", "#9d9d9d", "#505050", "#4e4e4e")
+    (
+        WIND_COLOR, PRECIP_COLOR, 
+        BACKGROUND_COLOR, GRIDLINE_COLOR, NEWDAY_COLOR
+    ) = PLOT_COLORS_LM
+    TEXT_COLOR = "#121212"
+
+mpl.rcParams['figure.facecolor'] = BACKGROUND_COLOR
+mpl.rcParams['axes.facecolor'] = BACKGROUND_COLOR
+mpl.rcParams.update({
+    'text.color': TEXT_COLOR,'axes.labelcolor': TEXT_COLOR,
+    'xtick.color': GRIDLINE_COLOR, 'xtick.labelcolor' : TEXT_COLOR,
+    'ytick.color': GRIDLINE_COLOR, 'ytick.labelcolor' : TEXT_COLOR,
+    'axes.edgecolor': GRIDLINE_COLOR, 
+})
 
 # ================================================================================================
 # LOOK UP COORDINATES FOR KOMMUNE
@@ -582,6 +616,7 @@ else:
 
 #  Dynamic figure sizing based on screen resolution w/ fallback
 try:
+    # This current setup is overkill but was arduously set up to deal with
     import tkinter as tk
     root = tk.Tk()
     screen_width = root.winfo_screenwidth()
@@ -619,14 +654,14 @@ temperature_line_collection = LineCollection(line_segments,
                                              cmap=COLORMAP,norm=temperature_cmap_norm)
 segment_avgs = 0.5 * (np.array(temperature_values[:-1]) + np.array(temperature_values[1:]))
 temperature_line_collection.set_array(segment_avgs)
-temperature_line_collection.set_linewidth(8)
+temperature_line_collection.set_linewidth(5.8)
 temperature_line_collection.set_capstyle('round')  # Round line ends
 temperature_line_collection.set_joinstyle('round') # Round corners
 temperature_line_collection.set_zorder(5)  # Ensure temperature line is above vertical lines
 temperature_axes.add_collection(temperature_line_collection)
 temperature_axes.set_xlim(time_indices.min(), time_indices.max())
 temperature_axes.set_ylim(min(temperature_values), max(temperature_values))
-temperature_axes.set_ylabel('Temperatur  (°C)', fontweight='bold', labelpad=12, fontsize=12)
+temperature_axes.set_ylabel('Temperatur', fontweight='bold', labelpad=12, fontsize=12)
 
 # Set x-ticks with better scaling for different forecast lengths
 if FORECAST_HOURS <= 15:
@@ -650,6 +685,23 @@ if SHOW_COLORBAR:
         orientation='vertical', pad=0.08, location='left'
     )
 
+# ---- HELPER FUNCTION FOR GLOW EFFECT -------------------------------------------------------
+def plot_with_glow(axes, x, y, color, linewidth, glow_linewidths, glow_alphas, **kwargs):
+    """Plots a line with a glow effect and returns the main line handle."""
+    # Pop zorder to handle it separately and avoid TypeError from **kwargs.
+    base_zorder = kwargs.pop('zorder', 1)
+
+    # Plot the glow layers
+    for delta_lw, alpha in zip(glow_linewidths, glow_alphas):
+        axes.plot(x, y, color=color, linewidth=linewidth + delta_lw, 
+                  alpha=alpha, zorder=base_zorder - 0.1, **kwargs)
+    
+    # Plot the main line on top
+    main_line, = axes.plot(x, y, color=color, linewidth=linewidth, 
+                           zorder=base_zorder, **kwargs)
+    
+    return main_line
+
 # ---- PRECIPITATION AND WINDS ---------------------------------------------------------------
 # Create a second y-axis for {precipitation, wind speed, wind gusts}
 multivar_axes = temperature_axes.twinx()
@@ -661,31 +713,77 @@ multivar_axes.set_ylabel(
 multivar_axes.tick_params(axis='y')
 
 # Plot precipitation as a blue line
-multivar_axes.plot(
-    time_indices, precipitation_list, label='Nedbør', 
-    linewidth=3.6, color='tab:blue', zorder=5
+precip_line = plot_with_glow(
+    multivar_axes, time_indices, precipitation_list,
+    glow_linewidths=PRECIP_GLOW_WIDTHS, glow_alphas=PRECIP_GLOW_ALPHAS,
+    label='Nedbør', 
+    linewidth=3.5, color=PRECIP_COLOR, zorder=5, solid_capstyle='round'
 )
 
 # Fill the area under the precipitation curve
-multivar_axes.fill_between(
-    time_indices, precipitation_list, color='tab:blue', alpha=0.3, zorder=4
+precip_fill = multivar_axes.fill_between(
+    time_indices, precipitation_list, color=PRECIP_COLOR, alpha=0.3, zorder=4
 )
 
-# Plot wind gusts as hollow points (higher priority)
-multivar_axes.scatter(
-    time_indices, windgust_list, 
-    label='Vindkast', facecolors='none', edgecolors='black', 
-    linewidths=1.5, zorder=6
+if DARK_MODE:
+    # Plot windspeed as dashed line with glow effect
+    wind_line = plot_with_glow(
+        multivar_axes, time_indices, windspeed_list, 
+        glow_linewidths=WIND_GLOW_WIDTHS, glow_alphas=WIND_GLOW_ALPHAS,
+        color=WIND_COLOR,
+        linewidth=3.2,
+        label='Middelvind',
+        linestyle='--',
+        zorder=5,
+        dash_capstyle='round'
+    )
+else:
+    # Plot windspeed as dashed line without glow
+    wind_line, = multivar_axes.plot(
+        time_indices, windspeed_list, linestyle='--', 
+        linewidth=3.2, label='Middelvind', color=WIND_COLOR, zorder=5, dash_capstyle='round'
+        )
+
+wind_line.set_dashes([2, 3])
+
+if DARK_MODE:
+    # Plot wind gusts with a glow effect
+    base_gust_size = 45
+    base_gust_zorder = 6
+    # Plot glow layers for scatter
+    for size_increase, alpha in zip(GLOW_SCATTER_SIZES, GLOW_SCATTER_ALPHAS):
+        multivar_axes.scatter(
+            time_indices, windgust_list, s=base_gust_size + size_increase,
+            facecolors=WIND_COLOR, edgecolors='none', alpha=alpha, zorder=base_gust_zorder - 0.1
+        )
+    # Plot main scatter points on top
+    gust_scatter = multivar_axes.scatter(
+        time_indices, windgust_list, s=base_gust_size,
+        label='Vindkast', facecolors=WIND_COLOR, edgecolors='none', zorder=base_gust_zorder
+    )
+else:
+    # Plot wind gusts without glow
+    gust_scatter = multivar_axes.scatter(
+        time_indices, windgust_list, s=35,
+        label='Vindkast', facecolors=WIND_COLOR, edgecolors='none', zorder=6
+    )
+
+# --- LEGEND W/ HANDLES --------------------------------------------------------------------------
+# Create proxy artist for the temperature line collection, colored from average temperature.
+avg_temp = np.nanmean(temperature_values)
+avg_temp_color = COLORMAP(temperature_cmap_norm(avg_temp))
+temp_legend_line = Line2D(
+    [0], [0], color=avg_temp_color, lw=5.5, label='Temperatur'
 )
 
-# Plot windspeed as black points
-multivar_axes.scatter(
-    time_indices, windspeed_list, 
-    label='Middelvind', color='black', zorder=5
-)
+# Define the order and content of the legend
+handles = [temp_legend_line, gust_scatter, wind_line, precip_line]
+labels = [h.get_label() for h in handles]
 
-# Legend for precipitation, windspeed, and wind gusts
-legend = multivar_axes.legend(loc='upper right', framealpha=0.75)
+# Manually create the legend with the specified order
+legend = multivar_axes.legend(
+    handles, labels, loc='upper right', framealpha=0.75, handlelength=2.7
+)
 legend.set_zorder(7)
 # ------------------------------------------------------------------------------------------------
 
@@ -779,6 +877,10 @@ else:
     sm_ticks = np.arange(sm_min, sm_max + 1, temperature_tick_interval)
     sm_axes.set_yticks(sm_ticks)
 
+# Add °C suffix to temperature tick labels
+temp_formatter = FuncFormatter(lambda y, pos: f'{int(y)}°C')
+temperature_axes.yaxis.set_major_formatter(temp_formatter)
+
 for lg_tick in lg_ticks:
     # Always draw grid lines on temperature_axes (background) to ensure proper layering
     if lg_axes == temperature_axes:
@@ -808,10 +910,10 @@ for lg_tick in lg_ticks:
     
     if is_aligned:
         # Thick line for aligned y-ticks - ALWAYS on temperature_axes
-        temperature_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=1.4, alpha=0.4, zorder=-1)
+        temperature_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=1.7, alpha=0.4, zorder=-1)
     else:
         # Thin line for non-aligned y-ticks - ALWAYS on temperature_axes
-        temperature_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=1.4, alpha=0.4, zorder=-1)
+        temperature_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=1.7, alpha=0.4, zorder=-1)
 
 # Set up x-axis ticks and grid AFTER y-axis grid alignment
 if FORECAST_HOURS <= 15:
@@ -832,19 +934,20 @@ temperature_axes.set_xticklabels(
     rotation=45, ha='right'
 )
 
-# Set minor ticks for grid lines (dense) - but only if different from major
+# Set minor x-ticks for grid lines (dense) - but only if different from major
+# Currently same color.
 if grid_interval != label_interval:
     xgrid_indices = list(range(0, len(times_list), grid_interval))
     temperature_axes.set_xticks(xgrid_indices, minor=True)
     # Enable both major and minor x-grid WITH DISTINCT STYLES IF DESIRED
     temperature_axes.grid(True, axis='x', which='major',
-                          linewidth=1.4, color=GRIDLINE_COLOR, alpha=0.4, zorder=-1)
+                          linewidth=1.7, color=GRIDLINE_COLOR, alpha=0.4, zorder=-1)
     temperature_axes.grid(True, axis='x', which='minor', 
-                          linewidth=1.4, color=GRIDLINE_COLOR, alpha=0.4, zorder=-1)
+                          linewidth=1.7, color=GRIDLINE_COLOR, alpha=0.4, zorder=-1)
 else:
     # When intervals are the same, just use major grid
     temperature_axes.grid(True, axis='x', which='major',
-                          linewidth=1.4, color=GRIDLINE_COLOR, alpha=0.4, zorder=-1)
+                          linewidth=1.7, color=GRIDLINE_COLOR, alpha=0.4, zorder=-1)
 # ------------------------------------------------------------------------------------------------
 
 # Add bold vertical line at midnight
@@ -852,8 +955,8 @@ for idx, t in enumerate(times_list):
     if t.startswith('00.'):
         y_min, y_max = temperature_axes.get_ylim()
         temperature_axes.plot([idx, idx], [y_min, y_max], 
-                              color=NEWDAY_COLOR, linewidth=4, alpha=1.0, zorder=2
-                              )        
+                              color=NEWDAY_COLOR, linewidth=5.5, alpha=0.65, zorder=2
+                              )
 
 plt.tight_layout()
 

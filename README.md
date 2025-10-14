@@ -78,6 +78,9 @@ python norweather_twoday.py hamar --noplot
 
 # Test mode with synthetic data
 python norweather_twoday.py --test
+
+# Neon dark mode for Oslo
+python norweather_twoday.py oslo --neon
 ```
 
 ### Arguments
@@ -103,7 +106,7 @@ The included colormap (`palette_static.py`) works without additional dependencie
 
 ```bash
 # Requires system dependencies
-pip install scikit-image scipy
+pip install scikit-image
 ```
 
 ## Background and process
@@ -125,6 +128,7 @@ Gave up on some expansions, first and foremost API geodata collection. Thus ende
 
 ### Plot Visualization
 ![Sample plot](sample_plot.png)
+![Sample plot 2](sample_plot2.png)
 
 ### Command-Line Forecast
 ![CLI output](sample_cli.png)
@@ -145,7 +149,8 @@ Test mode generates synthetic data, intented to check functionality with a very 
 Sample weather data is provided for testing the script, in particular the plot grid alignment.
 
 - `--test` - Synthetic data with extreme temperature range
-- `sample1` - Hammerfest sample with precipitation/wind range larger than temperature range.
+- `sample1` - Oslo sample with temp. range larger than wind/precip. range. No precipitation.
+- `sample2` - Hammerfest sample: vice versa. Some precipitation.
 
 ### Notes
 

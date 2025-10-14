@@ -30,6 +30,15 @@ palette_anchors = [
     "#eafc3e", "#ffd314", "#fd9400",
 ]
 
+# Dark mode anchors (currently same as non-DM)
+palette_anchors_dark = [
+    "#1d0096", "#0025c6", "#0061eb", 
+    "#2ca5ff", "#76d5ff", 
+    "#f6f6f6",  # Light gray center for dark mode
+    "#adffe1", "#bbfd86", 
+    "#eafc3e", "#ffd314", "#fd9400",
+]
+
 # Colorblind-optimized anchors (currently same as primary)
 
 palette_anchors_colorblind = [
@@ -199,19 +208,20 @@ def get_colorblind_colormap(
 # STATIC PALETTE EXPORT
 # ============================================================================
 def export_static_palette(filename="palette_static.py"):
-    """Export the colormap as static data for dependency-free usage."""
+    """Export light and dark colormaps as static data for dependency-free usage."""
     
-    # Generate the palette using current LUV interpolation
+    # Generate both palettes using LUV interpolation
     n_colors = 256  # High resolution just in case
-    _, palette_hex = get_temperature_colormap(n_colors)
+    _, palette_hex_light = get_temperature_colormap(n_colors, anchors=palette_anchors)
+    _, palette_hex_dark = get_temperature_colormap(n_colors, anchors=palette_anchors_dark)
     
     # Create the static file content
     static_content = f'''# ============================================================================
 # STATIC TEMPERATURE PALETTE
 # ============================================================================
 # 
-# This file was auto-generated from palette_cold_neutral_warm.py
-# Contains pre-computed color values.
+# This file was auto-generated from palette_cold_neutral_warm.py.
+# Contains pre-computed color values for both light and dark themes.
 #
 # Generated with {n_colors} colors using LUV color space interpolation.
 # Temperature range: -15°C to +30°C
@@ -219,24 +229,41 @@ def export_static_palette(filename="palette_static.py"):
 
 from matplotlib.colors import ListedColormap
 
-# Pre-computed color palette (hex values) - LUV interpolated
-TEMPERATURE_PALETTE_HEX = {palette_hex}
+# Pre-computed color palette for LIGHT mode (hex values) - LUV interpolated
+TEMPERATURE_PALETTE_HEX_LIGHT = {palette_hex_light}
 
-def get_colormap():
-    """Get the temperature colormap without any external dependencies."""
-    return ListedColormap(TEMPERATURE_PALETTE_HEX, name="cold_neutral_warm_static")
+# Pre-computed color palette for DARK mode (hex values) - LUV interpolated
+TEMPERATURE_PALETTE_HEX_DARK = {palette_hex_dark}
 
-def get_palette():
-    """Get the raw hex color list."""
-    return TEMPERATURE_PALETTE_HEX
+def get_colormap(dark_mode=False):
+    """
+    Get the temperature colormap without any external dependencies.
+    
+    Args:
+        dark_mode (bool): If True, returns the dark mode version of the colormap.
+    
+    Returns:
+        matplotlib.colors.ListedColormap: The selected colormap.
+    """
+    if dark_mode:
+        return ListedColormap(TEMPERATURE_PALETTE_HEX_DARK, name="cold_neutral_warm_static_dark")
+    else:
+        return ListedColormap(TEMPERATURE_PALETTE_HEX_LIGHT, name="cold_neutral_warm_static_light")
+
+def get_palette(dark_mode=False):
+    """Get the raw hex color list for the specified theme."""
+    if dark_mode:
+        return TEMPERATURE_PALETTE_HEX_DARK
+    else:
+        return TEMPERATURE_PALETTE_HEX_LIGHT
 '''
     
     # Write the file
     with open(filename, 'w', encoding='utf-8') as f:
         f.write(static_content)
-    print(f"✅ Static palette exported to: {filename}")
-    print(f"   Contains {len(palette_hex)} colors")
-    print(f"   No external dependencies required!")
+    print(f"✅ Static palettes exported to: {filename}")
+    print(f"   Light mode contains {len(palette_hex_light)} colors")
+    print(f"   Dark mode contains {len(palette_hex_dark)} colors")
 
 # ============================================================================
 # DEMO CONFIGURATION & VISUALIZATION

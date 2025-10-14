@@ -5,6 +5,7 @@ __pycache__/
 # Ignore output images and plots
 *.png
 !sample_plot.png
+!sample_plot2.png
 !sample_cli.png
 *.jpg
 *.jpeg
@@ -15,7 +16,7 @@ __pycache__/
 
 # Ignore data files that shouldn't be versioned
 *.csv
-!kommuners_koordinater.csv
+*.txt
 temp_data/
 output/
 
