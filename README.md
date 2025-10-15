@@ -2,13 +2,13 @@
 
 ## Overview
 
-The script `norweather_twoday.py` fetches weather data via [MET Weather API](https://api.met.no/) for a given Norwegian municipality, and whose lat. and long. coordinates are found in the local catalogue `kommuners_koordinater.csv` - made with data from [Kartverket](https://www.kartverket.no/). It prompts for the name (Norwegian, not case-sensitive) of a municipality (`kommune`). Data is then gathered & analyzed before presenting the forecast as both a visual plot and command-line table showing temperature, precipitation, wind speeds and wind gusts. I've set a max. limit of 48 hrs because past roughly 54 hrs, time intervals would deviate from 1 hr. By default uses custom colormap, defined in `palette_static.py`, which in turn was assembled in `palette_cold_neutral_warm.py`. Otherwise, e.g. `viridis` might be good.
+The script `norweather_twoday.py` fetches weather data via [MET Weather API](https://api.met.no/) for a given Norwegian municipality, and whose lat. and long. coordinates are found in the local catalogue `kommuners_koordinater.csv` - made with data from [Kartverket](https://www.kartverket.no/). Withouth arguments, it will prompt for the name (Norwegian, not case-sensitive) of a municipality (`kommune`). Data is then gathered & analyzed before presenting the forecast as both a visual plot and command-line table showing temperature, precipitation, wind speeds and wind gusts. I've set a max. limit of 48 hrs because past roughly 54 hrs, time intervals would deviate from 1 hr. By default uses a custom colormap, defined in `palette_static.py`, which in turn was assembled in `palette_cold_neutral_warm.py`. Otherwise, e.g. `viridis` might be good.
 
 ### Wind Data Visualization
 
 The forecast displays both sustained wind speeds and wind gusts:
-- **Sustained wind**: Black filled circles (10-minute average)
-- **Wind gusts**: Black hollow circles (3-second maximum)
+- **Sustained wind**: Dashed line (10-minute average)
+- **Wind gusts**: Scattered circles (3-second maximum)
 
 ## Third-Party Data
 
@@ -91,6 +91,7 @@ python norweather_twoday.py oslo --neon
 - `--noplot` - CLI output only, no plot window
 - `--onlyplot` - Plot only, suppress CLI output
 - `--test` - Use test mode with synthetic data
+- `--neon` - Dark mode with neon feel 
 
 ## Prerequisites
 
@@ -150,7 +151,7 @@ Sample weather data is provided for testing the script, in particular the plot g
 
 - `--test` - Synthetic data with extreme temperature range
 - `sample1` - Oslo sample with temp. range larger than wind/precip. range. No precipitation.
-- `sample2` - Hammerfest sample: vice versa. Some precipitation.
+- `sample2` - Molde sample: vice versa. Some precipitation.
 
 ### Notes
 

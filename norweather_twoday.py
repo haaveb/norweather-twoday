@@ -122,7 +122,7 @@ if DARK_MODE:
     TEXT_COLOR = "#bfcadf"
 else:
     COLORMAP = get_colormap(dark_mode=False)
-    PLOT_COLORS_LM = ("#121212", "#28849B", "#9d9d9d", "#505050", "#4e4e4e")
+    PLOT_COLORS_LM = ("#121212", "#1D8E9B", "#9d9d9d", "#505050", "#4e4e4e")
     (
         WIND_COLOR, PRECIP_COLOR, 
         BACKGROUND_COLOR, GRIDLINE_COLOR, NEWDAY_COLOR
@@ -793,7 +793,9 @@ legend.set_zorder(7)
 
 # ---- GRID ALIGNMENT FOUNDATIONAL LOGIC ---------------------------------------------------------
 temperature_min, temperature_max = temperature_axes.get_ylim()
-multivar_min, multivar_max = multivar_axes.get_ylim() # Visual Preference: Small minimum temperature replaced with zero.
+multivar_min, multivar_max = multivar_axes.get_ylim() 
+
+# Visual Preference: Small minimum temperature replaced with zero.
 if 0 < temperature_min < 5:
     temperature_min = 0
 
@@ -881,8 +883,12 @@ else:
 temp_formatter = FuncFormatter(lambda y, pos: f'{int(y)}°C')
 temperature_axes.yaxis.set_major_formatter(temp_formatter)
 
-for lg_tick in lg_ticks:
+# Create a more granular set of ticks for drawing gridlines (every integer)
+lg_grid_ticks = np.arange(np.floor(lg_min), np.ceil(lg_min + fitted_lg_range) + 1)
+
+for grid_tick in lg_grid_ticks:
     # Always draw grid lines on temperature_axes (background) to ensure proper layering
+    lg_tick = grid_tick # Use grid_tick for calculations
     if lg_axes == temperature_axes:
         # Large axis is temperature - use tick value directly
         draw_y = lg_tick
@@ -906,14 +912,17 @@ for lg_tick in lg_ticks:
         / (lg_ylim_max - lg_ylim_min)
     )
     # Check if any sm_axes tick is close to this equivalent position  
-    is_aligned = any(abs(sm_tick - sm_equiv) < 0.01 for sm_tick in sm_ticks)
+    is_major_aligned = any(abs(sm_tick - sm_equiv) < 0.01 for sm_tick in sm_ticks)
+    # Check if the grid tick corresponds to a labeled tick on the large axis
+    is_major_unaligned = any(abs(lg_labeled_tick - grid_tick) < 0.01 for lg_labeled_tick in lg_ticks)
     
-    if is_aligned:
-        # Thick line for aligned y-ticks - ALWAYS on temperature_axes
-        temperature_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=1.7, alpha=0.4, zorder=-1)
+    # Set 3 layers of y-ticks on larger axis
+    if is_major_aligned:
+        temperature_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=1.65, alpha=0.38, zorder=-1)
+    elif is_major_unaligned:
+        temperature_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=1.3, alpha=0.24, zorder=-1)
     else:
-        # Thin line for non-aligned y-ticks - ALWAYS on temperature_axes
-        temperature_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=1.7, alpha=0.4, zorder=-1)
+        temperature_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=1.3, alpha=0.24, zorder=-1)
 
 # Set up x-axis ticks and grid AFTER y-axis grid alignment
 if FORECAST_HOURS <= 15:
@@ -934,20 +943,20 @@ temperature_axes.set_xticklabels(
     rotation=45, ha='right'
 )
 
-# Set minor x-ticks for grid lines (dense) - but only if different from major
+# Set major & minor x-ticks
 # Currently same color.
 if grid_interval != label_interval:
     xgrid_indices = list(range(0, len(times_list), grid_interval))
     temperature_axes.set_xticks(xgrid_indices, minor=True)
     # Enable both major and minor x-grid WITH DISTINCT STYLES IF DESIRED
     temperature_axes.grid(True, axis='x', which='major',
-                          linewidth=1.7, color=GRIDLINE_COLOR, alpha=0.4, zorder=-1)
+                          linewidth=1.5, color=GRIDLINE_COLOR, alpha=0.24, zorder=-1)
     temperature_axes.grid(True, axis='x', which='minor', 
-                          linewidth=1.7, color=GRIDLINE_COLOR, alpha=0.4, zorder=-1)
+                          linewidth=1.5, color=GRIDLINE_COLOR, alpha=0.14, zorder=-1)
 else:
     # When intervals are the same, just use major grid
     temperature_axes.grid(True, axis='x', which='major',
-                          linewidth=1.7, color=GRIDLINE_COLOR, alpha=0.4, zorder=-1)
+                          linewidth=1.5, color=GRIDLINE_COLOR, alpha=0.24, zorder=-1)
 # ------------------------------------------------------------------------------------------------
 
 # Add bold vertical line at midnight
