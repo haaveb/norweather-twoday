@@ -112,15 +112,15 @@ pip install scikit-image
 
 ## Background and process
 
-This short project was made in order to explore basic data analysis & general syntax in Python. Spent some time constructing an intuitive colormap for weather temperature, taking into account colorblindness accessibility. Explored the subject of perceptual uniformity and CIELAB and CIELUV color spaces. The colormap is exported as static data to eliminate heavy dependencies. Aligning gridlines in a reasonable manner took a little while too.
+This project explores Python syntax, API interaction and color decisions for accessibility and general clarity. For the latter, CIELUV and CIELAB color spaces were explored and utilized. For instance, an intuitive colormap for temperatures was assembled - now exported as static data to eliminate heavy dependencies, but the admittedly messy script creating it is included too. 
 
 ## Limitations/Notes
 
-Gave up on some expansions, first and foremost API geodata collection. Thus ended up just organizing longitude and latitude data, from Kartverket, in a local catalogue (`kommuners_koordinater.csv`). On the other hand, dealing with the weather data API was fairly uneventful.
+Turned away the idea of API geodata collection for this. Instead, a local file (`kommuners_koordinater.csv`) is used as lookup for coordinates.
 
 ## Possibilities
-- Make longer forecasts possible by adding some filtering logic. Guessing this would be straight forward but add lots of lines.
-- Geodata via API --> Provide other place name options, expand outside Norway.
+- Make longer forecasts possible by adding some filtering logic. Probably straightforward to get this going, but cumbersome to get neat.
+- API geodata lookup --> Provide other place name options, expand outside Norway.
 - Dynamic choice of variables of interest etc.
 - GUI, Web App etc.
 - Further exploring accessibility enhancements.

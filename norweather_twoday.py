@@ -99,11 +99,11 @@ TEST_PRECIP_SCALE = 3.5             # Scale factor for test precipitation to ens
 REALLYWARM = 30                     # Attach warmest color to anything >= this constant
 TRULYCOLD = -REALLYWARM/2           # Easy solution to make custom palette work
 
-# Glow effect parameters for precipitation line
+# Glow effect for precipitation line
 PRECIP_GLOW_WIDTHS = [10, 4]
 PRECIP_GLOW_ALPHAS = [0.08, 0.35]
 
-# Glow effect parameters for wind speed line
+# Glow effect for wind speed line
 WIND_GLOW_WIDTHS = [9, 3.8]
 WIND_GLOW_ALPHAS = [0.05, 0.1]
 
@@ -114,20 +114,20 @@ GLOW_SCATTER_ALPHAS = [0.16, 0.08]
 # Output mode: by default show BOTH terminal output and plot
 if DARK_MODE:
     COLORMAP = get_colormap(dark_mode=True)
-    PLOT_COLORS_DM = ("#a95dff", "#45a8e2", "#1d2127", "#465774", "#000000")
+    PLOT_COLORS_DM = ("#a95dff", "#00ebe1", "#201d1a", "#655440", "#000000")
     (
         WIND_COLOR, PRECIP_COLOR, 
         BACKGROUND_COLOR, GRIDLINE_COLOR, NEWDAY_COLOR
     ) = PLOT_COLORS_DM
-    TEXT_COLOR = "#bfcadf"
+    TEXT_COLOR = "#fae0c5"
 else:
     COLORMAP = get_colormap(dark_mode=False)
-    PLOT_COLORS_LM = ("#121212", "#1D8E9B", "#9d9d9d", "#505050", "#4e4e4e")
+    PLOT_COLORS_LM = ("#121212", "#207c8f", "#958d5f", "#524d30", "#4b462b")
     (
         WIND_COLOR, PRECIP_COLOR, 
         BACKGROUND_COLOR, GRIDLINE_COLOR, NEWDAY_COLOR
     ) = PLOT_COLORS_LM
-    TEXT_COLOR = "#121212"
+    TEXT_COLOR = "#10131f"
 
 mpl.rcParams['figure.facecolor'] = BACKGROUND_COLOR
 mpl.rcParams['axes.facecolor'] = BACKGROUND_COLOR
@@ -782,7 +782,7 @@ labels = [h.get_label() for h in handles]
 
 # Manually create the legend with the specified order
 legend = multivar_axes.legend(
-    handles, labels, loc='upper right', framealpha=0.75, handlelength=2.7
+    handles, labels, loc='upper right', framealpha=0.72, handlelength=2.7
 )
 legend.set_zorder(7)
 # ------------------------------------------------------------------------------------------------
@@ -918,11 +918,11 @@ for grid_tick in lg_grid_ticks:
     
     # Set 3 layers of y-ticks on larger axis
     if is_major_aligned:
-        temperature_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=1.65, alpha=0.38, zorder=-1)
+        temperature_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=1.75, alpha=0.35, zorder=-1)
     elif is_major_unaligned:
-        temperature_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=1.3, alpha=0.24, zorder=-1)
+        temperature_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=1.5, alpha=0.2, zorder=-1)
     else:
-        temperature_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=1.3, alpha=0.24, zorder=-1)
+        temperature_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=1.5, alpha=0.2, zorder=-1)
 
 # Set up x-axis ticks and grid AFTER y-axis grid alignment
 if FORECAST_HOURS <= 15:
@@ -950,9 +950,9 @@ if grid_interval != label_interval:
     temperature_axes.set_xticks(xgrid_indices, minor=True)
     # Enable both major and minor x-grid WITH DISTINCT STYLES IF DESIRED
     temperature_axes.grid(True, axis='x', which='major',
-                          linewidth=1.5, color=GRIDLINE_COLOR, alpha=0.24, zorder=-1)
+                          linewidth=1.75, color=GRIDLINE_COLOR, alpha=0.24, zorder=-1)
     temperature_axes.grid(True, axis='x', which='minor', 
-                          linewidth=1.5, color=GRIDLINE_COLOR, alpha=0.14, zorder=-1)
+                          linewidth=1.75, color=GRIDLINE_COLOR, alpha=0.14, zorder=-1)
 else:
     # When intervals are the same, just use major grid
     temperature_axes.grid(True, axis='x', which='major',
