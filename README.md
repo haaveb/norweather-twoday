@@ -150,8 +150,10 @@ Test mode generates synthetic data, intented to check functionality with a very 
 Sample weather data is provided for testing the script, in particular the plot grid alignment.
 
 - `--test` - Synthetic data with extreme temperature range
-- `sample1` - Oslo sample with temp. range larger than wind/precip. range. No precipitation.
-- `sample2` - Molde sample: vice versa. Some precipitation.
+
+To use the sample data, provide the sample name as the `kommune` argument:
+- `python norweather_twoday.py sample1` - Sample with a large temperature range and no precipitation.
+- `python norweather_twoday.py sample2` - Sample with a smaller temperature range and some precipitation.
 
 ### Notes
 

@@ -91,43 +91,47 @@ USE_TEST_PLOT = args.test
 SHOW_PLOT = not args.noplot
 SHOW_TERMINAL = not args.onlyplot
 
-# Plotting & Style Constants
+# Plotting & Style
 SHOW_COLORBAR = False
-TEST_TEMPERATURE_RANGE = (-40, 40)  
+TEST_TEMPERATURE_RANGE = (-22, 33)  
 TEST_PRECIP_SCALE = 3.5             # Scale factor for test precipitation to ensure grid alignment
 
 REALLYWARM = 30                     # Attach warmest color to anything >= this constant
 TRULYCOLD = -REALLYWARM/2           # Easy solution to make custom palette work
 
-# Glow effect for precipitation line
-PRECIP_GLOW_WIDTHS = [10, 4]
-PRECIP_GLOW_ALPHAS = [0.08, 0.35]
+PRECIP_GLOW_WIDTHS = [10.5, 4.5]
+PRECIP_GLOW_ALPHAS = [0.09, 0.37]
 
-# Glow effect for wind speed line
-WIND_GLOW_WIDTHS = [9, 3.8]
-WIND_GLOW_ALPHAS = [0.05, 0.1]
+WIND_GLOW_WIDTHS = [9.5, 3.9]
+WIND_GLOW_ALPHAS = [0.06, 0.11]
 
-# Glow effect for scatter plots
-GLOW_SCATTER_SIZES = [55, 110]      # Large value useful for gust visibility at midnight 
-GLOW_SCATTER_ALPHAS = [0.16, 0.08]
+GLOW_SCATTER_SIZES = [56, 111]      # Large value useful for gust visibility at midnight 
+GLOW_SCATTER_ALPHAS = [0.17, 0.09]
 
 # Output mode: by default show BOTH terminal output and plot
 if DARK_MODE:
+    # DARK/NEON MODE ⚫🟣🟤🟣⚫
     COLORMAP = get_colormap(dark_mode=True)
-    PLOT_COLORS_DM = ("#a95dff", "#00ebe1", "#201d1a", "#655440", "#000000")
+    PLOT_COLORS_DM = ("#a95dff", "#1ad8be", "#040403",
+                      "#25221f", "#655440", "#392e23")
+    
     (
-        WIND_COLOR, PRECIP_COLOR, 
-        BACKGROUND_COLOR, GRIDLINE_COLOR, NEWDAY_COLOR
+        WIND_COLOR, PRECIP_COLOR, NEWDAY_COLOR,
+        BACKGROUND_COLOR, GRIDLINE_COLOR, LEGEND_FRAME_COLOR
     ) = PLOT_COLORS_DM
     TEXT_COLOR = "#fae0c5"
+
 else:
+    # LIGHT/NORMAL MODE ⚪🟡⚫🟡⚪
     COLORMAP = get_colormap(dark_mode=False)
-    PLOT_COLORS_LM = ("#121212", "#207c8f", "#958d5f", "#524d30", "#4b462b")
+    PLOT_COLORS_LM = ("#0d111a", "#06798d", "#483e1d", 
+                      "#b39f62", "#665a33", "#857644")
+    
     (
-        WIND_COLOR, PRECIP_COLOR, 
-        BACKGROUND_COLOR, GRIDLINE_COLOR, NEWDAY_COLOR
-    ) = PLOT_COLORS_LM
-    TEXT_COLOR = "#10131f"
+        WIND_COLOR, PRECIP_COLOR, NEWDAY_COLOR,
+        BACKGROUND_COLOR, GRIDLINE_COLOR, LEGEND_FRAME_COLOR
+        ) = PLOT_COLORS_LM
+    TEXT_COLOR = "#0d111a"
 
 mpl.rcParams['figure.facecolor'] = BACKGROUND_COLOR
 mpl.rcParams['axes.facecolor'] = BACKGROUND_COLOR
@@ -142,8 +146,8 @@ mpl.rcParams.update({
 # LOOK UP COORDINATES FOR KOMMUNE
 # ================================================================================================
 if USE_TEST_PLOT:
-    # Skip coordinate lookup in test mode - synthetic data doesn't need real lat/lon
-    # Kommune title already set to "Test Plot" in argument parsing section
+    # Skip coordinate lookup in test mode
+    # Kommune title set to "Test Plot" elsewhere (in argument parsing section)
     pass
 else:
     COORDINATES = {
@@ -158,18 +162,14 @@ else:
         # CSV fallback - skip comment lines starting with #
         # Coordinate data source: Kartverket (Norwegian Mapping Authority)
         with open("kommuners_koordinater.csv", encoding="utf-8") as f:
-            # Read lines and filter out comments
-            lines = [line for line in f if not line.strip().startswith('#')]
-            
-            # Create a new string from filtered lines
-            from io import StringIO
-            csv_content = StringIO(''.join(lines))
+            # Create a generator to filter out comments
+            filtered_lines = (line for line in f if not line.strip().startswith('#'))
             
             # First pass: collect all entries and identify duplicates
             all_entries = []
             duplicate_groups = {}
             
-            for row in csv.DictReader(csv_content):
+            for row in csv.DictReader(filtered_lines):
                 csv_kommune = row["kommune"].lower()
                 fylke = row.get("fylke", "").strip()
                 lat, lon = float(row["latitude"]), float(row["longitude"])
@@ -614,368 +614,382 @@ else:
 # PLOTTING: (1) GENERAL
 # ================================================================================================
 
-#  Dynamic figure sizing based on screen resolution w/ fallback
-try:
-    # This current setup is overkill but was arduously set up to deal with
-    import tkinter as tk
-    root = tk.Tk()
-    screen_width = root.winfo_screenwidth()
-    screen_height = root.winfo_screenheight()
-    root.destroy()
+if SHOW_PLOT:
 
-    # Calculate fig. size conservatively
-    fig_width_inches = screen_width / 120
-    fig_height_inches = screen_height / 140
+    #  Dynamic figure sizing based on screen resolution w/ fallback
+    try:
+        # Keeping this overkill step because it took a while to set up
+        import tkinter as tk
+        root = tk.Tk()
+        screen_width = root.winfo_screenwidth()
+        screen_height = root.winfo_screenheight()
+        root.destroy()
 
-    figure, temperature_axes = plt.subplots(figsize=(fig_width_inches, fig_height_inches))
-    
-except Exception:
-    # Fallback to default size
-    figure, temperature_axes = plt.subplots(figsize=(10, 6))
+        # Calculate fig. size conservatively
+        fig_width_inches = screen_width / 120
+        fig_height_inches = screen_height / 140
 
-figure.suptitle(
-    r"$\bf{Temperatur}$, $\bf{Nedbør}$ og $\bf{Vindstyrke}$ - de neste "
-    f"{FORECAST_HOURS} timene i {(display_name or kommune.title())}", fontsize=14
-)
-# Attribution text:
-figure.text(0.5, 0.94, "Værdata: Meteorologisk Institutt (MET.no)", 
-           ha='center', va='top', fontsize=9, style='italic', alpha=0.8)
+        figure, temperature_axes = plt.subplots(figsize=(fig_width_inches, fig_height_inches))
+        
+    except Exception:
+        # Fallback to default size
+        figure, temperature_axes = plt.subplots(figsize=(10, 6))
 
-time_indices = np.arange(len(times_list))
-temperature_values = temperature_list
-points_for_segments = np.array([time_indices, temperature_values]).T.reshape(-1, 1, 2)
-line_segments = np.concatenate([points_for_segments[:-1], points_for_segments[1:]], axis=1)
+    figure.suptitle(
+        r"$\bf{Temperatur}$, $\bf{Nedbør}$ og $\bf{Vindstyrke}$ - de neste "
+        f"{FORECAST_HOURS} timene i {(display_name or kommune.title())}", fontsize=16
+    )
+    # Attribution text:
+    figure.text(0.5, 0.94, "Værdata: Meteorologisk Institutt (MET.no)", 
+            ha='center', va='top', fontsize=12, style='italic', alpha=0.8)
 
-# Center colormap at 0 degrees C, distribute (likely unevenly) towards cold and warm ends.
-temperature_cmap_norm = TwoSlopeNorm(vmin=TRULYCOLD, vcenter=0, vmax=REALLYWARM)
+    time_indices = np.arange(len(times_list))
+    temperature_values = temperature_list
+    points_for_segments = np.array([time_indices, temperature_values]).T.reshape(-1, 1, 2)
+    line_segments = np.concatenate([points_for_segments[:-1], points_for_segments[1:]], axis=1)
 
-# Temperature line: segments w/ individual colors
-temperature_line_collection = LineCollection(line_segments, 
-                                             cmap=COLORMAP,norm=temperature_cmap_norm)
-segment_avgs = 0.5 * (np.array(temperature_values[:-1]) + np.array(temperature_values[1:]))
-temperature_line_collection.set_array(segment_avgs)
-temperature_line_collection.set_linewidth(5.8)
-temperature_line_collection.set_capstyle('round')  # Round line ends
-temperature_line_collection.set_joinstyle('round') # Round corners
-temperature_line_collection.set_zorder(5)  # Ensure temperature line is above vertical lines
-temperature_axes.add_collection(temperature_line_collection)
-temperature_axes.set_xlim(time_indices.min(), time_indices.max())
-temperature_axes.set_ylim(min(temperature_values), max(temperature_values))
-temperature_axes.set_ylabel('Temperatur', fontweight='bold', labelpad=12, fontsize=12)
+    # Center colormap at 0 degrees C, distribute (likely unevenly) towards cold and warm ends.
+    temperature_cmap_norm = TwoSlopeNorm(vmin=TRULYCOLD, vcenter=0, vmax=REALLYWARM)
 
-# Set x-ticks with better scaling for different forecast lengths
-if FORECAST_HOURS <= 15:
-    tick_interval = 1  # Show every hour for short forecasts
-elif FORECAST_HOURS <= 30:
-    tick_interval = 2  # Every 2 hours for medium forecasts
-else:
-    tick_interval = 4  # Every 4 hours for long forecasts
+    # Temperature line: segments w/ individual colors
+    temperature_line_collection = LineCollection(line_segments, 
+                                                cmap=COLORMAP,norm=temperature_cmap_norm)
+    segment_avgs = 0.5 * (np.array(temperature_values[:-1]) + np.array(temperature_values[1:]))
+    temperature_line_collection.set_array(segment_avgs)
+    temperature_line_collection.set_linewidth(5.8)
+    temperature_line_collection.set_capstyle('round')  # Round line ends
+    temperature_line_collection.set_joinstyle('round') # Round corners
+    temperature_line_collection.set_zorder(5)  # Ensure temperature line is above vertical lines
+    temperature_axes.add_collection(temperature_line_collection)
+    temperature_axes.set_xlim(time_indices.min(), time_indices.max())
+    temperature_axes.set_ylim(min(temperature_values), max(temperature_values))
+    temperature_axes.set_ylabel('Temperatur', fontweight='bold', labelpad=12, fontsize=15)
 
-xtick_indices = list(range(0, len(times_list), tick_interval))
-temperature_axes.set_xticks(xtick_indices)
-temperature_axes.set_xticklabels(
-    [times_list[i] for i in xtick_indices], 
-    rotation=45, ha='right'
-)
+    # Set x-ticks with better scaling for different forecast lengths
+    if FORECAST_HOURS <= 15:
+        tick_interval = 1  # Show every hour for short forecasts
+    elif FORECAST_HOURS <= 30:
+        tick_interval = 2  # Every 2 hours for medium forecasts
+    else:
+        tick_interval = 4  # Every 4 hours for long forecasts
 
-# Add temperature colorbar if enabled 
-if SHOW_COLORBAR:
-    colorbar = plt.colorbar(
-        temperature_line_collection, ax=temperature_axes, 
-        orientation='vertical', pad=0.08, location='left'
+    xtick_indices = list(range(0, len(times_list), tick_interval))
+    temperature_axes.set_xticks(xtick_indices)
+    temperature_axes.set_xticklabels(
+        [times_list[i] for i in xtick_indices], 
+        rotation=45, ha='right'
     )
 
-# ---- HELPER FUNCTION FOR GLOW EFFECT -------------------------------------------------------
-def plot_with_glow(axes, x, y, color, linewidth, glow_linewidths, glow_alphas, **kwargs):
-    """Plots a line with a glow effect and returns the main line handle."""
-    # Pop zorder to handle it separately and avoid TypeError from **kwargs.
-    base_zorder = kwargs.pop('zorder', 1)
-
-    # Plot the glow layers
-    for delta_lw, alpha in zip(glow_linewidths, glow_alphas):
-        axes.plot(x, y, color=color, linewidth=linewidth + delta_lw, 
-                  alpha=alpha, zorder=base_zorder - 0.1, **kwargs)
-    
-    # Plot the main line on top
-    main_line, = axes.plot(x, y, color=color, linewidth=linewidth, 
-                           zorder=base_zorder, **kwargs)
-    
-    return main_line
-
-# ---- PRECIPITATION AND WINDS ---------------------------------------------------------------
-# Create a second y-axis for {precipitation, wind speed, wind gusts}
-multivar_axes = temperature_axes.twinx()
-
-multivar_axes.set_ylabel(
-    'Nedbør (mm)  |  Vindstyrke (m/s)', 
-    fontweight='bold', labelpad=20, fontsize=12
-)
-multivar_axes.tick_params(axis='y')
-
-# Plot precipitation as a blue line
-precip_line = plot_with_glow(
-    multivar_axes, time_indices, precipitation_list,
-    glow_linewidths=PRECIP_GLOW_WIDTHS, glow_alphas=PRECIP_GLOW_ALPHAS,
-    label='Nedbør', 
-    linewidth=3.5, color=PRECIP_COLOR, zorder=5, solid_capstyle='round'
-)
-
-# Fill the area under the precipitation curve
-precip_fill = multivar_axes.fill_between(
-    time_indices, precipitation_list, color=PRECIP_COLOR, alpha=0.3, zorder=4
-)
-
-if DARK_MODE:
-    # Plot windspeed as dashed line with glow effect
-    wind_line = plot_with_glow(
-        multivar_axes, time_indices, windspeed_list, 
-        glow_linewidths=WIND_GLOW_WIDTHS, glow_alphas=WIND_GLOW_ALPHAS,
-        color=WIND_COLOR,
-        linewidth=3.2,
-        label='Middelvind',
-        linestyle='--',
-        zorder=5,
-        dash_capstyle='round'
-    )
-else:
-    # Plot windspeed as dashed line without glow
-    wind_line, = multivar_axes.plot(
-        time_indices, windspeed_list, linestyle='--', 
-        linewidth=3.2, label='Middelvind', color=WIND_COLOR, zorder=5, dash_capstyle='round'
+    # Add temperature colorbar if enabled 
+    if SHOW_COLORBAR:
+        colorbar = plt.colorbar(
+            temperature_line_collection, ax=temperature_axes, 
+            orientation='vertical', pad=0.08, location='left'
         )
 
-wind_line.set_dashes([2, 3])
+    # ---- HELPER FUNCTION FOR GLOW EFFECT -------------------------------------------------------
+    def plot_with_glow(axes, x, y, color, linewidth, glow_linewidths, glow_alphas, **kwargs):
+        """Plots a line with a glow effect and returns the main line handle."""
+        # Pop zorder to handle it separately and avoid TypeError from **kwargs.
+        # Also pop alpha for the main line, so it's not passed to the glow layers.
+        base_zorder = kwargs.pop('zorder', 1)
+        main_line_alpha = kwargs.pop('alpha', 1.0)
 
-if DARK_MODE:
-    # Plot wind gusts with a glow effect
-    base_gust_size = 45
-    base_gust_zorder = 6
-    # Plot glow layers for scatter
-    for size_increase, alpha in zip(GLOW_SCATTER_SIZES, GLOW_SCATTER_ALPHAS):
-        multivar_axes.scatter(
-            time_indices, windgust_list, s=base_gust_size + size_increase,
-            facecolors=WIND_COLOR, edgecolors='none', alpha=alpha, zorder=base_gust_zorder - 0.1
+        # Plot the glow layers
+        for delta_lw, alpha in zip(glow_linewidths, glow_alphas):
+            # Note: **kwargs passed here should NOT contain 'alpha' anymore
+            axes.plot(x, y, color=color, linewidth=linewidth + delta_lw, 
+                    alpha=alpha, zorder=base_zorder - 0.1, **kwargs)
+        
+        # Plot the main line on top
+        main_line, = axes.plot(
+            x, y, color=color, linewidth=linewidth, 
+            alpha=main_line_alpha, zorder=base_zorder, **kwargs
         )
-    # Plot main scatter points on top
-    gust_scatter = multivar_axes.scatter(
-        time_indices, windgust_list, s=base_gust_size,
-        label='Vindkast', facecolors=WIND_COLOR, edgecolors='none', zorder=base_gust_zorder
+        
+        return main_line
+
+    # ---- PRECIPITATION AND WINDS ---------------------------------------------------------------
+    # Create a second y-axis for {precipitation, wind speed, wind gusts}
+    multivar_axes = temperature_axes.twinx()
+
+    multivar_axes.set_ylabel(
+        'Nedbør (mm)  |  Vindstyrke (m/s)', 
+        fontweight='bold', labelpad=20, fontsize=15
     )
-else:
-    # Plot wind gusts without glow
-    gust_scatter = multivar_axes.scatter(
-        time_indices, windgust_list, s=35,
-        label='Vindkast', facecolors=WIND_COLOR, edgecolors='none', zorder=6
+    multivar_axes.tick_params(axis='y', labelsize=10.8)
+    # for label in multivar_axes.get_yticklabels():
+    #     label.set_fontweight('bold')
+
+    # Plot precipitation as a blue line 
+    precip_line = plot_with_glow(
+        multivar_axes, time_indices, precipitation_list,
+        glow_linewidths=PRECIP_GLOW_WIDTHS, glow_alphas=PRECIP_GLOW_ALPHAS,
+        label='Nedbør', 
+        linewidth=3.5, color=PRECIP_COLOR, alpha=0.7, zorder=5, solid_capstyle='round'
     )
 
-# --- LEGEND W/ HANDLES --------------------------------------------------------------------------
-# Create proxy artist for the temperature line collection, colored from average temperature.
-avg_temp = np.nanmean(temperature_values)
-avg_temp_color = COLORMAP(temperature_cmap_norm(avg_temp))
-temp_legend_line = Line2D(
-    [0], [0], color=avg_temp_color, lw=5.5, label='Temperatur'
-)
+    # Fill the area under the precipitation curve
+    precip_fill = multivar_axes.fill_between(
+        time_indices, precipitation_list, color=PRECIP_COLOR, alpha=0.3, zorder=4
+    )
 
-# Define the order and content of the legend
-handles = [temp_legend_line, gust_scatter, wind_line, precip_line]
-labels = [h.get_label() for h in handles]
+    if DARK_MODE:
+        # Plot windspeed as dashed line with glow effect
+        wind_line = plot_with_glow(
+            multivar_axes, time_indices, windspeed_list, 
+            glow_linewidths=WIND_GLOW_WIDTHS, glow_alphas=WIND_GLOW_ALPHAS,
+            color=WIND_COLOR,
+            linewidth=3.2,
+            label='Middelvind',
+            linestyle='--',
+            zorder=5,
+            dash_capstyle='round'
+        )
+    else:
+        # Plot windspeed as dashed line without glow
+        wind_line, = multivar_axes.plot(
+            time_indices, windspeed_list, linestyle='--', 
+            linewidth=3.2, label='Middelvind', color=WIND_COLOR, zorder=5, dash_capstyle='round'
+            )
 
-# Manually create the legend with the specified order
-legend = multivar_axes.legend(
-    handles, labels, loc='upper right', framealpha=0.72, handlelength=2.7
-)
-legend.set_zorder(7)
-# ------------------------------------------------------------------------------------------------
+    wind_line.set_dashes([2, 3])
 
-# ================================================================================================
-# PLOTTING: (2) UNIFORM GRIDLINES AND VISUAL TWEAKS
-# ================================================================================================
+    if DARK_MODE:
+        # Plot wind gusts with a glow effect
+        base_gust_size = 45
+        base_gust_zorder = 6
+        # Plot glow layers for scatter
+        for size_increase, alpha in zip(GLOW_SCATTER_SIZES, GLOW_SCATTER_ALPHAS):
+            multivar_axes.scatter(
+                time_indices, windgust_list, s=base_gust_size + size_increase,
+                facecolors=WIND_COLOR, edgecolors='none', alpha=alpha, zorder=base_gust_zorder - 0.1
+            )
+        # Plot main scatter points on top
+        gust_scatter = multivar_axes.scatter(
+            time_indices, windgust_list, s=base_gust_size,
+            label='Vindkast', facecolors=WIND_COLOR, edgecolors='none', zorder=base_gust_zorder
+        )
+    else:
+        # Plot wind gusts without glow
+        gust_scatter = multivar_axes.scatter(
+            time_indices, windgust_list, s=35,
+            label='Vindkast', facecolors=WIND_COLOR, edgecolors='none', zorder=6
+        )
 
-# ---- GRID ALIGNMENT FOUNDATIONAL LOGIC ---------------------------------------------------------
-temperature_min, temperature_max = temperature_axes.get_ylim()
-multivar_min, multivar_max = multivar_axes.get_ylim() 
+    # --- LEGEND W/ HANDLES --------------------------------------------------------------------------
+    # Create proxy artist for the temperature line collection, colored from average temperature.
+    avg_temp = np.nanmean(temperature_values)
+    avg_temp_color = COLORMAP(temperature_cmap_norm(avg_temp))
+    temp_legend_line = Line2D(
+        [0], [0], color=avg_temp_color, lw=5.5, label='Temperatur'
+    )
 
-# Visual Preference: Small minimum temperature replaced with zero.
-if 0 < temperature_min < 5:
-    temperature_min = 0
+    # Define the order and content of the legend
+    handles = [temp_legend_line, gust_scatter, wind_line, precip_line]
+    labels = [h.get_label() for h in handles]
 
-# Round to whole numbers
-temperature_max, temperature_min = np.ceil(temperature_max), np.floor(temperature_min)
-multivar_max = np.ceil(multivar_max)
-if 0 < multivar_min < 2: # flooring presumed zero values gives -1 
-    multivar_min = 0     # ... because of automatic padding, it turns out.
-elif multivar_min < 0: 
-    multivar_min = 0
-else:
-    multivar_min = np.floor(multivar_min)
+    # Manually create the legend with the specified order
+    legend = multivar_axes.legend(
+        handles, labels, loc='upper right', 
+        framealpha=0.67, handlelength=2.7,
+        fontsize=11.5,              # Larger text
+        labelspacing=0.6,         # More vertical space between items
+        borderpad=0.85,            # More padding inside the frame
+        edgecolor=LEGEND_FRAME_COLOR # Editable frame color
+    )
+    legend.get_frame().set_linewidth(1.5)
+    legend.set_zorder(7)
+    # ------------------------------------------------------------------------------------------------
 
-# Ranges for y-axes
-temperature_range = temperature_max - temperature_min
-multivar_range = multivar_max - multivar_min
+    # ================================================================================================
+    # PLOTTING: (2) UNIFORM GRIDLINES AND VISUAL TWEAKS
+    # ================================================================================================
 
-# Special handling for test mode to ensure grid alignment
-if USE_TEST_PLOT and temperature_range == 80 and abs(multivar_range - 16) < 2:
-    # Force precipitation range to 20 to get same number of ticks as temperature
-    # Temperature: 80°C, interval 8 → 11 ticks
-    # Precipitation: 20mm, interval 2 → 11 ticks (0,2,4,6,8,10,12,14,16,18,20)
-    print(f"Test mode: adjusting precip range from {multivar_range:.1f} to 20.0 for grid alignment")
-    multivar_max = 20.0
+    # ---- GRID ALIGNMENT FOUNDATIONAL LOGIC ---------------------------------------------------------
+    temperature_min, temperature_max = temperature_axes.get_ylim()
+    multivar_min, multivar_max = multivar_axes.get_ylim() 
+
+    # Visual Preference: Small minimum temperature replaced with zero.
+    if 0 < temperature_min < 5:
+        temperature_min = 0
+
+    # Round to whole numbers
+    temperature_max, temperature_min = np.ceil(temperature_max), np.floor(temperature_min)
+    multivar_max = np.ceil(multivar_max)
+    if 0 < multivar_min < 2: # flooring presumed zero values gives -1 
+        multivar_min = 0     # ... because of automatic padding, it turns out.
+    elif multivar_min < 0: 
+        multivar_min = 0
+    else:
+        multivar_min = np.floor(multivar_min)
+
+    # Ranges for y-axes
+    temperature_range = temperature_max - temperature_min
     multivar_range = multivar_max - multivar_min
 
-# Collect data for temperature and multivariate axes
-temperature_data = (temperature_min, temperature_max, temperature_range, temperature_axes)
-multivar_data = (multivar_min, multivar_max, multivar_range, multivar_axes)
+    # Special handling for test mode to ensure grid alignment
+    if USE_TEST_PLOT and temperature_range == 80 and abs(multivar_range - 16) < 2:
+        # Force precipitation range to 20 to get same number of ticks as temperature
+        # Temperature: 80°C, interval 8 → 11 ticks
+        # Precipitation: 20mm, interval 2 → 11 ticks (0,2,4,6,8,10,12,14,16,18,20)
+        # print(f"Test mode: adjusting precip range from {multivar_range:.1f} to 20.0 for grid alignment")
+        multivar_max = 20.0
+        multivar_range = multivar_max - multivar_min
 
-# Determine which data range is smaller and larger
-if temperature_range < multivar_range:
-    smaller_range_data, larger_range_data = temperature_data, multivar_data
-else:
-    smaller_range_data, larger_range_data = multivar_data, temperature_data
+    # Collect data for temperature and multivariate axes
+    temperature_data = (temperature_min, temperature_max, temperature_range, temperature_axes)
+    multivar_data = (multivar_min, multivar_max, multivar_range, multivar_axes)
 
-# Unpack smaller and larger data for further processing
-(sm_min, sm_max, sm_range, sm_axes) = smaller_range_data
-(lg_min, lg_max, lg_range, lg_axes) = larger_range_data
-
-# Find the smallest integer N, so that N*sm_range >= lg_range
-N = int(np.ceil(lg_range / sm_range)) if sm_range > 0 else 1
-fitted_lg_range = N * sm_range
-
-# Apply new limits and ticks
-lg_axes.set_ylim(lg_min, lg_min + fitted_lg_range)
-# ------------------------------------------------------------------------------------------------
-
-# ---- TICKS ADJUSTMENT: DECLUTTER ---------------------------------------------------------------
-# Function to determine tick interval based on data range
-def get_tick_interval(data_range):
-    """Determine appropriate tick interval to avoid cluttered axes"""
-    if data_range <= 12:
-        return 1
-    elif data_range <= 24:
-        return 2
-    elif data_range <= 48:
-        return 4
+    # Determine which data range is smaller and larger
+    if temperature_range < multivar_range:
+        smaller_range_data, larger_range_data = temperature_data, multivar_data
     else:
-        return 8
+        smaller_range_data, larger_range_data = multivar_data, temperature_data
 
-# Generate tick intervals based on ranges (before any axis scaling)
-temperature_tick_interval = get_tick_interval(temperature_range)
-multivar_tick_interval = get_tick_interval(multivar_range)
+    # Unpack smaller and larger data for further processing
+    (sm_min, sm_max, sm_range, sm_axes) = smaller_range_data
+    (lg_min, lg_max, lg_range, lg_axes) = larger_range_data
 
-# Apply ticks to both axes
-if lg_axes == temperature_axes:
-    # Temperature is large axis
-    lg_ticks = np.arange(lg_min, lg_min + fitted_lg_range + 1, temperature_tick_interval)
-    lg_axes.set_yticks(lg_ticks)
-    # Small axis (precipitation) keeps its natural range
-    sm_axes.set_ylim(sm_min, sm_max)
-    sm_ticks = np.arange(sm_min, sm_max + 1, multivar_tick_interval)
-    sm_axes.set_yticks(sm_ticks)
-else:
-    # Precipitation is large axis
-    lg_ticks = np.arange(lg_min, lg_min + fitted_lg_range + 1, multivar_tick_interval)
-    lg_axes.set_yticks(lg_ticks)
-    # Small axis (temperature) keeps its natural range
-    sm_axes.set_ylim(sm_min, sm_max)
-    sm_ticks = np.arange(sm_min, sm_max + 1, temperature_tick_interval)
-    sm_axes.set_yticks(sm_ticks)
+    # Find the smallest integer N, so that N*sm_range >= lg_range
+    N = int(np.ceil(lg_range / sm_range)) if sm_range > 0 else 1
+    fitted_lg_range = N * sm_range
 
-# Add °C suffix to temperature tick labels
-temp_formatter = FuncFormatter(lambda y, pos: f'{int(y)}°C')
-temperature_axes.yaxis.set_major_formatter(temp_formatter)
+    # Apply new limits and ticks
+    lg_axes.set_ylim(lg_min, lg_min + fitted_lg_range)
+    # ------------------------------------------------------------------------------------------------
 
-# Create a more granular set of ticks for drawing gridlines (every integer)
-lg_grid_ticks = np.arange(np.floor(lg_min), np.ceil(lg_min + fitted_lg_range) + 1)
+    # ---- TICKS ADJUSTMENT: DECLUTTER ---------------------------------------------------------------
+    # Function to determine tick interval based on data range
+    def get_tick_interval(data_range):
+        """Determine appropriate tick interval to avoid cluttered axes"""
+        if data_range <= 12:
+            return 1
+        elif data_range <= 24:
+            return 2
+        elif data_range <= 48:
+            return 4
+        else:
+            return 8
 
-for grid_tick in lg_grid_ticks:
-    # Always draw grid lines on temperature_axes (background) to ensure proper layering
-    lg_tick = grid_tick # Use grid_tick for calculations
+    # Generate tick intervals based on ranges (before any axis scaling)
+    temperature_tick_interval = get_tick_interval(temperature_range)
+    multivar_tick_interval = get_tick_interval(multivar_range)
+
+    # Apply ticks to both axes
     if lg_axes == temperature_axes:
-        # Large axis is temperature - use tick value directly
-        draw_y = lg_tick
+        # Temperature is large axis
+        lg_ticks = np.arange(lg_min, lg_min + fitted_lg_range + 1, temperature_tick_interval)
+        lg_axes.set_yticks(lg_ticks)
+        # Small axis (precipitation) keeps its natural range
+        sm_axes.set_ylim(sm_min, sm_max)
+        sm_ticks = np.arange(sm_min, sm_max + 1, multivar_tick_interval)
+        sm_axes.set_yticks(sm_ticks)
     else:
-        # Large axis is precipitation - convert to temperature coordinate space
+        # Precipitation is large axis
+        lg_ticks = np.arange(lg_min, lg_min + fitted_lg_range + 1, multivar_tick_interval)
+        lg_axes.set_yticks(lg_ticks)
+        # Small axis (temperature) keeps its natural range
+        sm_axes.set_ylim(sm_min, sm_max)
+        sm_ticks = np.arange(sm_min, sm_max + 1, temperature_tick_interval)
+        sm_axes.set_yticks(sm_ticks)
+
+    # Add °C suffix to temperature tick labels
+    temp_formatter = FuncFormatter(lambda y, pos: f'{int(y)}°C')
+    temperature_axes.yaxis.set_major_formatter(temp_formatter)
+    temperature_axes.tick_params(axis='y', labelsize=10.8)
+
+    # Create a more granular set of ticks for drawing gridlines (every integer)
+    lg_grid_ticks = np.arange(np.floor(lg_min), np.ceil(lg_min + fitted_lg_range) + 1)
+
+    for grid_tick in lg_grid_ticks:
+        # Always draw grid lines on temperature_axes (background) to ensure proper layering
+        lg_tick = grid_tick # Use grid_tick for calculations
+        if lg_axes == temperature_axes:
+            # Large axis is temperature - use tick value directly
+            draw_y = lg_tick
+        else:
+            # Large axis is precipitation - convert to temperature coordinate space
+            lg_ylim_min, lg_ylim_max = lg_axes.get_ylim()
+            temp_ylim_min, temp_ylim_max = temperature_axes.get_ylim()
+            # Map from precipitation coordinates to temperature coordinates
+            draw_y = (
+                temp_ylim_min
+                + (lg_tick - lg_ylim_min) * (temp_ylim_max - temp_ylim_min)
+                / (lg_ylim_max - lg_ylim_min)
+            )
+        
+        # Convert lg_tick to sm_axes coordinate space for alignment check
         lg_ylim_min, lg_ylim_max = lg_axes.get_ylim()
-        temp_ylim_min, temp_ylim_max = temperature_axes.get_ylim()
-        # Map from precipitation coordinates to temperature coordinates
-        draw_y = (
-            temp_ylim_min
-            + (lg_tick - lg_ylim_min) * (temp_ylim_max - temp_ylim_min)
+        sm_ylim_min, sm_ylim_max = sm_axes.get_ylim()
+        sm_equiv = (
+            sm_ylim_min
+            + (lg_tick - lg_ylim_min) * (sm_ylim_max - sm_ylim_min)
             / (lg_ylim_max - lg_ylim_min)
         )
-    
-    # Convert lg_tick to sm_axes coordinate space for alignment check
-    lg_ylim_min, lg_ylim_max = lg_axes.get_ylim()
-    sm_ylim_min, sm_ylim_max = sm_axes.get_ylim()
-    sm_equiv = (
-        sm_ylim_min
-        + (lg_tick - lg_ylim_min) * (sm_ylim_max - sm_ylim_min)
-        / (lg_ylim_max - lg_ylim_min)
-    )
-    # Check if any sm_axes tick is close to this equivalent position  
-    is_major_aligned = any(abs(sm_tick - sm_equiv) < 0.01 for sm_tick in sm_ticks)
-    # Check if the grid tick corresponds to a labeled tick on the large axis
-    is_major_unaligned = any(abs(lg_labeled_tick - grid_tick) < 0.01 for lg_labeled_tick in lg_ticks)
-    
-    # Set 3 layers of y-ticks on larger axis
-    if is_major_aligned:
-        temperature_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=1.75, alpha=0.35, zorder=-1)
-    elif is_major_unaligned:
-        temperature_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=1.5, alpha=0.2, zorder=-1)
+        # Check if any sm_axes tick is close to this equivalent position  
+        is_major_aligned = any(abs(sm_tick - sm_equiv) < 0.01 for sm_tick in sm_ticks)
+        # Check if the grid tick corresponds to a labeled tick on the large axis
+        is_major_unaligned = any(abs(lg_labeled_tick - grid_tick) < 0.01 for lg_labeled_tick in lg_ticks)
+        
+        # Set 3 layers of y-ticks on larger axis
+        if is_major_aligned:
+            temperature_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=1.85, alpha=0.38, zorder=-1)
+        elif is_major_unaligned:
+            temperature_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=1.5, alpha=0.2, zorder=-1)
+        else:
+            temperature_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=1.5, alpha=0.2, zorder=-1)
+
+    # Set up x-axis ticks and grid AFTER y-axis grid alignment
+    if FORECAST_HOURS <= 15:
+        grid_interval = 1    # Every hour
+        label_interval = 1   # Show every hour for short forecasts
+    elif FORECAST_HOURS <= 30:
+        grid_interval = 1    # Every hour (denser grid)
+        label_interval = 2   # Every 2 hours for medium forecasts
     else:
-        temperature_axes.axhline(y=draw_y, color=GRIDLINE_COLOR, linewidth=1.5, alpha=0.2, zorder=-1)
+        grid_interval = 2    # Every 2 hours (denser grid)
+        label_interval = 4   # Every 4 hours for long forecasts
 
-# Set up x-axis ticks and grid AFTER y-axis grid alignment
-if FORECAST_HOURS <= 15:
-    grid_interval = 1    # Every hour
-    label_interval = 1   # Show every hour for short forecasts
-elif FORECAST_HOURS <= 30:
-    grid_interval = 1    # Every hour (denser grid)
-    label_interval = 2   # Every 2 hours for medium forecasts
-else:
-    grid_interval = 2    # Every 2 hours (denser grid)
-    label_interval = 4   # Every 4 hours for long forecasts
+    # Set major ticks for labels (sparser)
+    xlabel_indices = list(range(0, len(times_list), label_interval))
+    temperature_axes.set_xticks(xlabel_indices)
+    temperature_axes.set_xticklabels(
+        [times_list[i] for i in xlabel_indices], 
+        rotation=45, ha='right', fontsize=11
+    )
 
-# Set major ticks for labels (sparse)
-xlabel_indices = list(range(0, len(times_list), label_interval))
-temperature_axes.set_xticks(xlabel_indices)
-temperature_axes.set_xticklabels(
-    [times_list[i] for i in xlabel_indices], 
-    rotation=45, ha='right'
-)
+    # Set major & minor x-ticks for grid (denser).
+    if grid_interval != label_interval:
+        xgrid_indices = list(range(0, len(times_list), grid_interval))
+        temperature_axes.xaxis.set_minor_locator(plt.FixedLocator(xgrid_indices))
+        # Enable grid for both major (labeled) and minor (unlabeled) ticks.
+        temperature_axes.grid(True, axis='x', which='major',
+                            linewidth=1.75, color=GRIDLINE_COLOR, alpha=0.21, zorder=-1)
+        temperature_axes.grid(True, axis='x', which='minor', 
+                            linewidth=1.65, color=GRIDLINE_COLOR, alpha=0.13, zorder=-1)
+    else:
+        # When intervals are the same, just use major grid
+        temperature_axes.grid(True, axis='x', which='major',
+                            linewidth=1.5, color=GRIDLINE_COLOR, alpha=0.21, zorder=-1)
+    # ------------------------------------------------------------------------------------------------
 
-# Set major & minor x-ticks
-# Currently same color.
-if grid_interval != label_interval:
-    xgrid_indices = list(range(0, len(times_list), grid_interval))
-    temperature_axes.set_xticks(xgrid_indices, minor=True)
-    # Enable both major and minor x-grid WITH DISTINCT STYLES IF DESIRED
-    temperature_axes.grid(True, axis='x', which='major',
-                          linewidth=1.75, color=GRIDLINE_COLOR, alpha=0.24, zorder=-1)
-    temperature_axes.grid(True, axis='x', which='minor', 
-                          linewidth=1.75, color=GRIDLINE_COLOR, alpha=0.14, zorder=-1)
-else:
-    # When intervals are the same, just use major grid
-    temperature_axes.grid(True, axis='x', which='major',
-                          linewidth=1.5, color=GRIDLINE_COLOR, alpha=0.24, zorder=-1)
-# ------------------------------------------------------------------------------------------------
+    # Add bold vertical line at midnight
+    for idx, t in enumerate(times_list):
+        if t.startswith('00.'):
+            y_min, y_max = temperature_axes.get_ylim()
+            temperature_axes.plot([idx, idx], [y_min, y_max], 
+                                color=NEWDAY_COLOR, linewidth=5.5, alpha=0.55, zorder=2
+                                )
 
-# Add bold vertical line at midnight
-for idx, t in enumerate(times_list):
-    if t.startswith('00.'):
-        y_min, y_max = temperature_axes.get_ylim()
-        temperature_axes.plot([idx, idx], [y_min, y_max], 
-                              color=NEWDAY_COLOR, linewidth=5.5, alpha=0.65, zorder=2
-                              )
+    plt.tight_layout()
 
-plt.tight_layout()
+    # Window maximization
+    try:
+        plt.get_current_fig_manager().window.wm_state('zoomed')
+    except:
+        pass
 
-# Simple window maximization
-try:
-    plt.get_current_fig_manager().window.wm_state('zoomed')
-except:
-    pass
-
-if SHOW_PLOT:
     plt.show()
 else:
     print("Plotting disabled (--noplot).")

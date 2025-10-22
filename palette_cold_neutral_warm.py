@@ -22,7 +22,7 @@ from skimage import color
     # Made to be intuitive for how temperatures feel, specifically in the 
     # context of deciding what to wear. Might be specific to Oslo-weather.
 
-""" # Saved Reference 1.0
+""" # Saved Reference 1
 [
     "#1d0096", "#0025c6", "#0061eb", 
     "#2ca5ff", "#76d5ff", 
@@ -30,32 +30,39 @@ from skimage import color
     "#adffe1", "#bbfd86", 
     "#eafc3e", "#ffd314", "#fd9400",
 ] """
+""" # Saved Reference 2
+[
+    "#2416a1", "#222ec6", "#2b44e7", 
+    "#1f6dff", "#488fff", "#91c9ff", 
+    "#f6f6f6",
+    "#ade0b9", "#8adf87","#c1df35", 
+    "#f1ff2c", "#fec800","#fda900"
+] """
 
 palette_anchors = [
-    "#1f0077", "#0017aa", "#002cc5", 
-    "#005add", "#3689ff", "#75bfff", 
+    "#2416a1", "#222ec6", "#2b44e7", 
+    "#1f6dff", "#488fff", "#91c9ff", 
     "#f6f6f6",
-    "#b2dfc5", "#88d796","#a5e24b", 
-    "#f1ff2c", "#f3ab00","#e48300"
+    "#92f0c1", "#75f670","#c1df35", 
+    "#f1ff2c", "#fec800","#fda900"
 ]
 
 # Dark mode anchors (currently same as non-DM)
 palette_anchors_dark = [
-    "#1f0077", "#0017aa", "#002cc5", 
-    "#005add", "#3689ff", "#75bfff", 
+    "#2416a1", "#222ec6", "#2b44e7", 
+    "#1f6dff", "#488fff", "#91c9ff", 
     "#f6f6f6",
-    "#b2dfc5", "#88d796","#a5e24b", 
-    "#f1ff2c", "#f3ab00","#e48300"
+    "#92f0c1", "#75f670","#c1df35", 
+    "#f1ff2c", "#fec800","#fda900"
 ]
-
 # Colorblind-optimized anchors (currently same as primary)
 
 palette_anchors_colorblind = [
-    "#1f0077", "#0017aa", "#002cc5", 
-    "#005add", "#3689ff", "#75bfff", 
+    "#2416a1", "#222ec6", "#2b44e7", 
+    "#1f6dff", "#488fff", "#91c9ff", 
     "#f6f6f6",
-    "#b2dfc5", "#88d796","#a5e24b", 
-    "#f1ff2c", "#f3ab00","#e48300"
+    "#92f0c1", "#75f670","#c1df35", 
+    "#f1ff2c", "#fec800","#fda900"
 ]
 
 # ============================================================================
